@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-// Mô hình Session để lưu refresh token và thông tin liên quan
+// Session để lưu refresh token và thông tin liên quan
 const sessionSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
