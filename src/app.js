@@ -18,6 +18,7 @@ import orderRoute from './routes/orderRoute.js';
 import categoryRoute from './routes/categoryRoute.js';
 import cartRoute from './routes/cartRoute.js';
 import blogRoute from './routes/blogRoute.js';
+import studentProfileRoute from './routes/studentProfileRoute.js';
 
 dotenv.config();
 connectDB();
@@ -42,12 +43,12 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // --- API ENDPOINTS ---
 app.use('/api/v1/auth', authRoute);
 app.use('/api/v1/products', productRoute);
-app.use('/api/v1/users', userRoute); // Route quản lý HSSV và D.Member
+app.use('/api/v1/users', userRoute);
 app.use('/api/v1/orders', orderRoute);
 app.use('/api/v1/categories', categoryRoute);
 app.use('/api/v1/cart', cartRoute);
 app.use('/api/v1/blogs', blogRoute);
-
+app.use('/api/v1/student-profile', studentProfileRoute);
 app.get('/', (req, res) => {
     res.send('API Di Động Việt đang hoạt động ổn định...');
 });
