@@ -1,12 +1,21 @@
 import express from 'express';
-import { signIn, signUp } from '../controllers/authController.js';
-
+import { signIn, verifyOTP, resendOTP, signUp, googleLoginController } from '../controllers/authController.js';
+import { validateUserFields } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
-// 1. Đăng ký tài khoản mới
-router.post('/signup', signUp);
+// Route Đăng ký tài khoản mới
+router.post('/signup', validateUserFields, signUp);
 
-// 2. Đăng nhập hệ thống
+// Route Xác thực mã OTP để kích hoạt tài khoản
+router.post('/verify-otp', verifyOTP);
+
+// Route Gửi lại mã OTP
+router.post('/resend-otp', resendOTP);
+
+// Route Đăng nhập hệ thống
 router.post('/signin', signIn);
+
+// Route Đăng nhập bằng Google
+router.post('/google-login', googleLoginController);
 
 export default router;
