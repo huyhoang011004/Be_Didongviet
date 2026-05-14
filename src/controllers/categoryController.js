@@ -55,7 +55,10 @@ export const getCategoryBySlug = async (req, res) => {
 // 3. TẠO MỚI (ADMIN)
 export const createCategory = async (req, res) => {
     try {
-        // Vì Model đã có middleware tạo slug, chúng ta không cần dùng thư viện slugify ở đây
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Tên danh mục là bắt buộc' });
+        }
         const newCategory = await Category.create(req.body);
         res.status(201).json({ success: true, data: newCategory });
     } catch (error) {
@@ -66,6 +69,10 @@ export const createCategory = async (req, res) => {
 // 4. CẬP NHẬT (ADMIN)
 export const updateCategory = async (req, res) => {
     try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Tên danh mục là bắt buộc' });
+        }
         const updatedCategory = await Category.findByIdAndUpdate(
             req.params.id,
             req.body,

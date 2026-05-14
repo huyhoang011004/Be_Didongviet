@@ -10,10 +10,9 @@ import {
     getUsedCategories
 } from '../controllers/categoryController.js';
 
-import { protect } from '../middlewares/authMiddleware.js';
-import { admin } from '../middlewares/adminMiddleware.js';
+import { protect, adminRole } from '../middlewares/authMiddleware.js';
 
-// --- ROUTES CÔNG KHAI (Dành cho khách hàng) ---
+// --- ROUTES CÔNG KHAI ---
 
 // Lấy toàn bộ cây danh mục cho Menu chính (Điện thoại, Tablet, Mac...)
 router.get('/', getAllCategories);
@@ -22,17 +21,17 @@ router.get('/', getAllCategories);
 router.get('/used-special', getUsedCategories);
 
 // Lấy chi tiết danh mục theo Slug (SEO Friendly)
-router.get('/slug/:slug', getCategoryBySlug);
+router.get('/slug/:slug', getCategoryBySlug); // Ví dụ: /api/categories/slug/dien-thoai
 
 
-// --- ROUTES QUẢN TRỊ (Dành cho Admin Di Động Việt) ---
+// --- ROUTES QUẢN TRỊ ---
 // Yêu cầu: Phải đăng nhập (protect) và có quyền (admin)
 
 router.route('/')
-    .post(protect, admin, createCategory); // Thêm dòng sản phẩm mới
+    .post(adminRole, createCategory);
 
 router.route('/:id')
-    .put(protect, admin, updateCategory)    // Sửa tên, ảnh hoặc thương hiệu danh mục
-    .delete(protect, admin, deleteCategory); // Xóa danh mục (Chỉ khi không còn danh mục con)
+    .put(adminRole, updateCategory)
+    .delete(adminRole, deleteCategory);
 
 export default router;

@@ -41,11 +41,10 @@ const categorySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Tự động tạo slug trước khi lưu
-categorySchema.pre('save', function (next) {
-    if (this.isModified('name')) {
+categorySchema.pre('save', async function () {
+    if (this.isModified('name') && this.name) {
         this.slug = slugify(this.name);
     }
-    next();
 });
 
 export default mongoose.model('Category', categorySchema);
