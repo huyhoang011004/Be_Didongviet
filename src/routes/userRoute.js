@@ -3,30 +3,40 @@ const router = express.Router();
 
 import {
     getUserProfile,
-    uploadStudentCard,
-    getPendingHSSV,
-    verifyHSSVStatus
+    updateUserProfile,
+    deleteUserProfile,
+    getAllUsersForAdmin,
+    createUserByAdmin,
+    updateUserByAdmin,
+    deleteUserByAdmin
 } from '../controllers/userController.js';
 
-import { protect } from '../middlewares/authMiddleware.js';
-import { admin } from '../middlewares/adminMiddleware.js';
-import upload from '../middlewares/uploadMiddleware.js';
+import { protect, adminRole } from '../middlewares/authMiddleware.js';
 
-// --- ROUTES CHO NGƯỜI DÙNG ---
+
+// --- ROUTES CÔNG KHAI ---
 
 // Xem hồ sơ cá nhân
 router.get('/profile', protect, getUserProfile);
 
-// Upload minh chứng HSSV (Sử dụng uploadMiddleware bạn đã viết)
-router.post('/verify-hssv', protect, upload.single('studentCard'), uploadStudentCard);
+// Cập nhật hồ sơ cá nhân
+router.put('/profile', protect, updateUserProfile);
 
+// Xóa hồ sơ cá nhân
+router.delete('/profile', protect, deleteUserProfile);
 
-// --- ROUTES CHO ADMIN ---
+// --- ROUTES QUẢN TRỊ ---
 
-// Lấy danh sách đang chờ duyệt
-router.get('/admin/pending-hssv', protect, admin, getPendingHSSV);
+// Xem tất cả người dùng
+router.get('/admin/get-all-users', adminRole, getAllUsersForAdmin);
 
-// Duyệt hoặc từ chối hồ sơ dựa trên ID người dùng
-router.put('/admin/verify-hssv/:id', protect, admin, verifyHSSVStatus);
+// Tạo người dùng admin hoặc staff
+router.post('/admin/create', adminRole, createUserByAdmin);
+
+// Cập nhật thông tin người dùng (bao gồm thăng chức/hạ chức và khôi phục tài khoản đã xóa mềm)
+router.put('/admin/update/:id', adminRole, updateUserByAdmin);
+
+// Xóa người dùng (xóa vĩnh viễn)
+router.delete('/admin/delete/:id', adminRole, deleteUserByAdmin);
 
 export default router;
