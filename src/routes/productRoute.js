@@ -12,14 +12,10 @@ import {
     deleteProduct
 } from '../controllers/productController.js';
 
-import { protect } from '../middlewares/authMiddleware.js';
-import { admin } from '../middlewares/adminMiddleware.js';
+import { protect, adminRole } from '../middlewares/authMiddleware.js';
 import upload from '../middlewares/uploadMiddleware.js';
 
-// --- NHÓM MIDDLEWARE CHO QUẢN TRỊ ---
-// Gom nhóm các middleware dùng chung cho Admin để tránh lặp lại nhiều lần
-const adminAuth = [protect, admin];
-const adminUpload = [protect, admin, upload.single('image')];
+const adminUpload = [protect, adminRole, upload.single('image')];
 
 /**
  * @route   GET & POST /api/v1/products
@@ -41,6 +37,6 @@ router.get('/trade-in', getTradeInProducts);
 router.route('/:id')
     .get(getProductById) // Controller này giờ đã tự động tính personalPrice nếu có token
     .put(adminUpload, updateProduct)
-    .delete(adminAuth, deleteProduct);
+    .delete(adminRole, deleteProduct);
 
 export default router;

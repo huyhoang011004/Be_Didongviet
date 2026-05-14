@@ -10,7 +10,6 @@ import {
 
 } from '../controllers/orderController.js';
 import { protect } from '../middlewares/authMiddleware.js';
-import { admin } from '../middlewares/adminMiddleware.js';
 
 // --- Khách hàng ---
 router.post('/', protect, addOrderItems);
@@ -19,7 +18,7 @@ router.put('/:id/cancel', protect, cancelOrder);
 router.get('/track', trackOrderPublic); // Theo dõi đơn hàng công khai (không cần auth)
 
 // --- Admin ---
-router.get('/', protect, admin, getAllOrders); // Xem toàn bộ đơn hàng hệ thống
-router.put('/:id/deliver', protect, admin, updateOrderToDelivered); // Xác nhận đã giao hàng
+router.get('/', protect, getAllOrders); // Xem toàn bộ đơn hàng hệ thống
+router.put('/:id/deliver', protect, updateOrderToDelivered); // Xác nhận đã giao hàng
 
 export default router;

@@ -5,8 +5,6 @@ const productSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, index: true },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     brand: { type: String, required: true },
-
-    // Các thông số chung của dòng sản phẩm
     description: { type: String },
     ratings: { type: Number, default: 0 },
     slug: { type: String, unique: true },
@@ -15,8 +13,8 @@ const productSchema = new mongoose.Schema({
     variants: [
         {
             color: { type: String, required: true }, // Ví dụ: Titan Sa Mạc, Đen Huyền Bí
-            storage: { type: String, required: true }, // Ví dụ: 128GB, 256GB, 1TB
-            ram: { type: String }, // Ví dụ: 8GB, 12GB
+            ram: { type: String, required: true }, // Ví dụ: 8GB, 12GB
+            rom: { type: String, required: true }, // Ví dụ: 128GB, 256GB, 1TB
             price: { type: Number, required: true }, // Giá gốc của bản này
             salePrice: { type: Number }, // Giá khuyến mãi riêng cho bản này
             stock: { type: Number, default: 0 }, // Tồn kho riêng cho bản này
@@ -27,10 +25,8 @@ const productSchema = new mongoose.Schema({
 
     // Logic đặc thù Di Động Việt
     isUsed: { type: Boolean, default: false },
-    discountHSSV: { type: Number, default: 0 },
     discountDMember: { type: Number, default: 1 },
-    hasInstallment0: { type: Boolean, default: true },
-    tradeInBonus: { type: Number, default: 0 },
+    tradeInBonus: { type: Number, default: 0 }, // Tiền thưởng khi thu cũ đổi mới
 
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
