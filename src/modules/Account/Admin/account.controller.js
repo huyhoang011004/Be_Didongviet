@@ -185,9 +185,6 @@ const deleteUserByAdmin = async (req, res) => {
 };
 
 export {
-    getUserProfile,
-    updateUserProfile,
-    deleteUserProfile,
     getAllUsersForAdmin,
     createUserByAdmin,
     updateUserByAdmin,

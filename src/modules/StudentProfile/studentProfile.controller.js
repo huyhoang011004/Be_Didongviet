@@ -3,23 +3,23 @@ import Voucher from '#voucher/Voucher.model.js';
 
 const updateStudentProfile = async (req, res) => {
     try {
-        const userId = req.user._id; // Lấy ID từ Token xác thực thông qua Middleware auth
-        const { studentIdCard, schoolName } = req.body;
-        const studentCardImage = req.body.studentCardImage;
+        const userId = req.user._id;
+        const { studentIdCard, schoolName, studentCardImage } = req.body;
 
-        // Tìm xem đã có hồ sơ sinh viên chưa
         let profile = await StudentProfile.findOne({ userId });
 
         if (profile) {
-            // Nếu đã có, tiến hành cập nhật dữ liệu mới và reset trạng thái duyệt
             profile.studentIdCard = studentIdCard || profile.studentIdCard;
             profile.schoolName = schoolName || profile.schoolName;
             if (studentCardImage) profile.studentCardImage = studentCardImage;
-            profile.isHSSVVerified = 'Đang chờ'; // Gửi lại yêu cầu xác thực mới
-
+            profile.isHSSVVerified = 'Đang chờ';
+            profile.rejectedReason = undefined;
             await profile.save();
         } else {
-            // Nếu chưa có, tạo mới hoàn toàn hồ sơ HSSV
+            if (!studentIdCard || !schoolName) {
+                return res.status(400).json({ success: false, message: 'Cần cung cấp MSSV và tên trường khi tạo hồ sơ HSSV mới.' });
+            }
+
             profile = await StudentProfile.create({
                 userId,
                 studentIdCard,
@@ -34,6 +34,21 @@ const updateStudentProfile = async (req, res) => {
             message: 'Cập nhật thông tin hồ sơ HSSV thành công, vui lòng chờ duyệt',
             data: profile
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const getOwnStudentProfile = async (req, res) => {
+    try {
+        const profile = await StudentProfile.findOne({ userId: req.user._id })
+            .populate('userId', 'name email phone');
+
+        if (!profile) {
+            return res.status(404).json({ success: false, message: 'Chưa có hồ sơ HSSV cho tài khoản này.' });
+        }
+
+        res.status(200).json({ success: true, data: profile });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -95,7 +110,7 @@ const uploadStudentCard = async (req, res) => {
 const getPendingHSSV = async (req, res) => {
     try {
         const pendingProfiles = await StudentProfile.find({ isHSSVVerified: 'Đang chờ' })
-            .populate('userId', 'name email phone') // Lấy tên, email, sđt từ bảng User sang
+            .populate('_id', 'name email phone') // Lấy tên, email, sđt từ bảng User sang
             .sort({ createdAt: 1 }); // Hồ sơ gửi trước duyệt trước
 
         res.status(200).json({ success: true, data: pendingProfiles });
@@ -187,6 +202,7 @@ const verifyHSSVStatus = async (req, res) => {
 export {
     updateStudentProfile,
     uploadStudentCard,
+    getOwnStudentProfile,
     getPendingHSSV,
     verifyHSSVStatus
 };

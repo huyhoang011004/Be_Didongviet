@@ -5,38 +5,55 @@ import {
     getAllProducts,
     getProductsByCategory,
     getProductById,
-    getHSSVProducts,
     getTradeInProducts,
+    getRelatedProducts,
+    getProductBySKU,
     createProduct,
     updateProduct,
     deleteProduct
-} from './product.controller.js';
+} from '#product/product.controller.js';
 
-import { protect, adminRole } from '../../middlewares/auth.middleware.js';
-import upload from '../../middlewares/upload.middleware.js';
+import { protect, adminRole } from '#middlewares/auth.middleware.js';
+import upload from '#middlewares/upload.middleware.js';
 
-const adminUpload = [protect, adminRole, upload.single('image')];
+// --- CẤU HÌNH MIDDLEWARE ---
+const adminAuth = [protect, adminRole]; // Middleware xác thực Admin
 
-/**
- * @route   GET & POST /api/v1/products
- */
-router.route('/')
-    .get(getAllProducts)
-    .post(adminUpload, createProduct); // Dùng nhóm middleware đã tối ưu
+// ==========================================
+// 1. PUBLIC ROUTES (Dành cho khách hàng)
+// ==========================================
 
-/**
- * @route   GET /api/v1/products/category/:categorySlug
- */
-router.get('/category/:categorySlug', getProductsByCategory);
-router.get('/hssv-deals', getHSSVProducts);
+// Lấy danh sách sản phẩm (có thể kèm filter, search, pagination)
+router.get('/', getAllProducts);
+
+// Các chương trình khuyến mãi đặc thù Di Động Việt
 router.get('/trade-in', getTradeInProducts);
 
+// Lấy theo danh mục hoặc sản phẩm liên quan
+router.get('/category/:categorySlug', getProductsByCategory);
+router.get('/:id/related', getRelatedProducts);
+
+// Tìm kiếm theo SKU (Khách cũng có thể check cấu hình qua SKU)
+router.get('/sku/:sku', getProductBySKU);
+
+// Chi tiết sản phẩm (Hỗ trợ cả ID và Slug)
+router.get('/:identifier', getProductById);
+
+
+// ==========================================
+// 2. ADMIN ROUTES (Yêu cầu quyền Quản trị viên)
+// ==========================================
+
+// Áp dụng middleware bảo mật cho toàn bộ các route định nghĩa phía dưới
+router.use(protect, adminRole);
+
 /**
- * @route   GET, PUT, DELETE /api/v1/products/:id
+ * Quản lý thông tin sản phẩm
  */
-router.route('/:id')
-    .get(getProductById) // Controller này giờ đã tự động tính personalPrice nếu có token
-    .put(adminUpload, updateProduct)
-    .delete(adminRole, deleteProduct);
+router.post('/', upload.single('image'), createProduct);
+
+router.route('/:identifier')
+    .put(upload.single('image'), updateProduct)
+    .delete(deleteProduct);
 
 export default router;

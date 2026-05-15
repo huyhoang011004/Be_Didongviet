@@ -1,5 +1,5 @@
 import Account from '#account/Account.model.js';
-import StudentProfile from '#student/StudentProfile.model.js';
+import StudentProfile from '#studentProfile/StudentProfile.model.js';
 
 const getUserProfile = async (req, res) => {
     try {

@@ -3,8 +3,6 @@
  */
 export const calculateDiscountedPrice = (originalPrice, options = {}) => {
     const {
-        isHSSV = false,
-        discountHSSV = 0,
         isDMember = false,
         dMemberDiscountRate = 1,
         tradeInBonus = 0
@@ -12,7 +10,7 @@ export const calculateDiscountedPrice = (originalPrice, options = {}) => {
 
     let finalPrice = originalPrice;
 
-    // 2. Giảm giá D.Member: Tính trên giá sau khi đã giảm HSSV
+    // 2. Giảm giá D.Member: 
     if (isDMember) {
         finalPrice -= (finalPrice * dMemberDiscountRate) / 100;
     }

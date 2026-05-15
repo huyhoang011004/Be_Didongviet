@@ -16,7 +16,8 @@ import productRoute from '#product/product.route.js';
 import accountRoute from '#account/account.route.js';
 import orderRoute from '#order/order.route.js';
 import categoryRoute from '#category/Admin/category.route.js';
-import cartRoute from '#cart/cartRoute.js';
+import voucherRoute from '#voucher/voucher.route.js';
+import cartRoute from '#cart/cart.route.js';
 import blogRoute from '#blog/blog.route.js';
 import studentProfileRoute from '#studentProfile/studentProfile.route.js';
 
@@ -46,6 +47,7 @@ app.use('/api/v1/products', productRoute);
 app.use('/api/v1/accounts', accountRoute);
 app.use('/api/v1/orders', orderRoute);
 app.use('/api/v1/categories', categoryRoute);
+app.use('/api/v1/vouchers', voucherRoute);
 app.use('/api/v1/cart', cartRoute);
 app.use('/api/v1/blogs', blogRoute);
 app.use('/api/v1/student-profile', studentProfileRoute);

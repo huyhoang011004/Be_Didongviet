@@ -4,13 +4,8 @@ import fs from 'fs';
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // Mặc định lưu vào uploads/
-        let folder = 'uploads/products/';
-
-        // Nếu request gửi đến route xác thực HSSV, lưu vào uploads/verify/
-        if (req.originalUrl.includes('verify-hssv')) {
-            folder = 'uploads/verify/';
-        }
+        req.isVerifyHssv = req.originalUrl.includes('verify-hssv');
+        let folder = req.isVerifyHssv ? 'uploads/verify/' : 'uploads/products/';
 
         // Kiểm tra và tự động tạo thư mục nếu chưa tồn tại
         if (!fs.existsSync(folder)) {
@@ -21,7 +16,7 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         // Prefix tên file để dễ phân loại trong thư mục
-        const prefix = req.originalUrl.includes('verify-hssv') ? 'hssv-' : 'prod-';
+        const prefix = req.isVerifyHssv ? 'hssv-' : 'prod-';
         cb(null, `${prefix}${Date.now()}-${file.originalname}`);
     }
 });
