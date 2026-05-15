@@ -19,6 +19,20 @@
   "author": "Nguyễn Văn Huy Hoàng",
   "license": "ISC",
   "type": "module",
+  "imports": {
+    "#utils/*.js": "./src/utils/*.js",
+    "#middlewares/*.js": "./src/middlewares/*.js",
+    "#config/*.js": "./src/config/*.js",
+    "#auth/*.js": "./src/modules/Auth/*.js",
+    "#account/*.js": "./src/modules/Account/*.js",
+    "#category/*.js": "./src/modules/Category/*.js",
+    "#product/*.js": "./src/modules/Product/*.js",
+    "#cart/*.js": "./src/modules/Cart/*.js",
+    "#order/*.js": "./src/modules/Order/*.js",
+    "#voucher/*.js": "./src/modules/Voucher/*.js",
+    "#blog/*.js": "./src/modules/Blog/*.js",
+    "#studentProfile/*.js": "./src/modules/StudentProfile/*.js"
+  },
   "dependencies": {
     "bcryptjs": "3.0.3",
     "cookie-parser": "1.4.7",

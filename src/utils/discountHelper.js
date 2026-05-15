@@ -12,13 +12,6 @@ export const calculateDiscountedPrice = (originalPrice, options = {}) => {
 
     let finalPrice = originalPrice;
 
-    // 1. Giảm giá HSSV: Ưu tiên trừ trước
-    if (isHSSV && discountHSSV > 0) {
-        finalPrice -= (discountHSSV <= 100)
-            ? (finalPrice * discountHSSV) / 100
-            : discountHSSV;
-    }
-
     // 2. Giảm giá D.Member: Tính trên giá sau khi đã giảm HSSV
     if (isDMember) {
         finalPrice -= (finalPrice * dMemberDiscountRate) / 100;

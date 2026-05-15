@@ -7,18 +7,18 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 
 // Cấu hình & Database
-import connectDB from './config/db.js';
-import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
+import connectDB from '#config/db.js';
+import { notFound, errorHandler } from '#middlewares/error.middleware.js';
 
 // Routes
-import authRoute from './routes/authRoute.js';
-import productRoute from './routes/productRoute.js';
-import userRoute from './routes/userRoute.js';
-import orderRoute from './routes/orderRoute.js';
-import categoryRoute from './routes/categoryRoute.js';
-import cartRoute from './routes/cartRoute.js';
-import blogRoute from './routes/blogRoute.js';
-import studentProfileRoute from './routes/studentProfileRoute.js';
+import authRoute from '#auth/auth.route.js';
+import productRoute from '#product/product.route.js';
+import accountRoute from '#account/account.route.js';
+import orderRoute from '#order/order.route.js';
+import categoryRoute from '#category/Admin/category.route.js';
+import cartRoute from '#cart/cartRoute.js';
+import blogRoute from '#blog/blog.route.js';
+import studentProfileRoute from '#studentProfile/studentProfile.route.js';
 
 dotenv.config();
 connectDB();
@@ -43,7 +43,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // --- API ENDPOINTS ---
 app.use('/api/v1/auth', authRoute);
 app.use('/api/v1/products', productRoute);
-app.use('/api/v1/users', userRoute);
+app.use('/api/v1/accounts', accountRoute);
 app.use('/api/v1/orders', orderRoute);
 app.use('/api/v1/categories', categoryRoute);
 app.use('/api/v1/cart', cartRoute);
