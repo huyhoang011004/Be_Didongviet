@@ -15,14 +15,16 @@ import authRoute from '#auth/auth.route.js';
 import productRoute from '#product/product.route.js';
 import accountRoute from '#account/account.route.js';
 import orderRoute from '#order/order.route.js';
-import categoryRoute from '#category/Admin/category.route.js';
+import categoryRoute from '#category/category.route.js';
 import voucherRoute from '#voucher/voucher.route.js';
 import cartRoute from '#cart/cart.route.js';
 import blogRoute from '#blog/blog.route.js';
 import studentProfileRoute from '#studentProfile/studentProfile.route.js';
 
 dotenv.config();
-connectDB();
+if (process.env.NODE_ENV !== 'test') {
+    connectDB();
+}
 
 const app = express();
 

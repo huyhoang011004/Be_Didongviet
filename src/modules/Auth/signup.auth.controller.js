@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import Account from '#account/Account.model.js';
 import sessionModel from '#auth/Session.model.js';
 import { sendOTPEmail } from '#utils/emailService.js';
+import bcrypt from 'bcryptjs';
 
 const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL;
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL;

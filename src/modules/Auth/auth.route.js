@@ -3,13 +3,13 @@ import {
     signUp,
     verifyOTP,
     resendOTP
-} from '#auth/SignUp/signup.auth.controller.js';
+} from '#auth/signup.auth.controller.js';
 import {
     login,
     googleLoginController,
     forgotPassword,
     resetPassword
-} from '#auth/LogIn/login.auth.controller.js';
+} from '#auth/login.auth.controller.js';
 import { validateUserFields } from '#middlewares/auth.middleware.js';
 const router = express.Router();
 

@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
+import Account from '#account/Account.model.js';
 
 const studentProfileSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: Account,
         required: true,
         unique: true // Đảm bảo mỗi user chỉ có duy nhất 1 hồ sơ HSSV
     },

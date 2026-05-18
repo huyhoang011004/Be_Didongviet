@@ -1,8 +1,8 @@
 import express from 'express';
 const router = express.Router();
 
-import { getAllCategories, getCategoryBySlug, getUsedCategories } from '#category/Admin/User/category.user.controller.js';
-import { createCategory, updateCategory, deleteCategory } from '#category/Admin/category.admin.controller.js';
+import { getAllCategories, getCategoryBySlug, getUsedCategories } from '#category/category.controller.js';
+import { createCategory, updateCategory, deleteCategory } from '#category/category.admin.controller.js';
 import { protect, adminRole } from '#middlewares/auth.middleware.js';
 
 // --- ROUTES CÔNG KHAI ---

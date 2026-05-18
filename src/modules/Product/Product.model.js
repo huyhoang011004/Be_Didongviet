@@ -3,26 +3,33 @@ import slugify from '#utils/slugify.js';
 
 const productSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, index: true },
-    image: { type: String, required: true },
+    images: [{
+        url: { type: String, required: true },
+        isThumbnail: { type: Boolean, default: false },
+        order: { type: Number, default: 0 },
+        alt: { type: String, default: '' }
+    }],
+    video: { type: String, default: null },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     brand: { type: String, required: true },
     description: { type: String },
     ratings: { type: Number, default: 0 },
     slug: { type: String, unique: true },
 
-    // CHI TIẾT CÁC PHIÊN BẢN (Màu, RAM, ROM)
-    variants: [
-        {
-            color: { type: String, required: true }, // Ví dụ: Titan Sa Mạc, Đen Huyền Bí
-            ram: { type: String, required: true }, // Ví dụ: 8GB, 12GB
-            rom: { type: String, required: true }, // Ví dụ: 128GB, 256GB, 1TB
-            price: { type: Number, required: true }, // Giá gốc của bản này
-            salePrice: { type: Number }, // Giá khuyến mãi riêng cho bản này
-            stock: { type: Number, default: 0 }, // Tồn kho riêng cho bản này
-            sku: { type: String, unique: true }, // Mã định danh kho hàng (ví dụ: IP16PM-256-GOLD)
-            variantImage: { type: String } // Ảnh riêng cho màu đó
-        }
-    ],
+    // CHI TIẾT CÁC PHIÊN BẢN
+    variants: [{
+        color: { type: String, required: true }, // Ví dụ: Titan Sa Mạc, Đen Huyền Bí
+        ram: { type: String, required: true }, // Ví dụ: 8GB, 12GB
+        rom: { type: String, required: true }, // Ví dụ: 128GB, 256GB, 1TB
+        price: { type: Number, required: true }, // Giá gốc của bản này
+        salePrice: { type: Number }, // Giá khuyến mãi riêng cho bản này
+        stock: { type: Number, default: 0 }, // Tồn kho riêng cho bản này
+        sku: { type: String, unique: true }, // Mã định danh kho hàng (ví dụ: IP16PM-256-GOLD)
+        variantImage: {
+            type: String,
+            default: null
+        }, // Ảnh riêng cho phiên bản này (nếu có)
+    }],
 
     // Logic đặc thù Di Động Việt
     isUsed: { type: Boolean, default: false },
@@ -42,13 +49,11 @@ productSchema.pre('save', async function () {
 // Tạo Virtual Field để trả về URL ảnh đầy đủ
 // Giúp Frontend chỉ cần gọi product.imageUrl là hiển thị được ngay
 productSchema.virtual('imageUrl').get(function () {
-    if (!this.image) return null;
+    if (!this.images || this.images.length === 0) return null;
     // Nếu image đã là link full (http...) thì giữ nguyên, nếu không thì nối với host
-    if (this.image.startsWith('http')) return this.image;
-    return `${process.env.BASE_URL || 'http://localhost:5000'}${this.image}`;
+    if (this.images[0].url.startsWith('http')) return this.images[0].url;
+    return `${process.env.BASE_URL || 'http://localhost:5000'}${this.images[0].url}`;
 });
-
-
 
 // Virtual: Tính khoảng giá từ variants
 productSchema.virtual('priceRange').get(function () {

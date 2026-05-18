@@ -1,6 +1,53 @@
 import StudentProfile from '#studentProfile/StudentProfile.model.js';
 import Voucher from '#voucher/Voucher.model.js';
 
+const uploadStudentCard = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp ảnh thẻ HSSV làm minh chứng' });
+        }
+
+        const studentCardImage = `/uploads/verify/${req.file.filename}`;
+
+        // Kiểm tra xem user này đã từng tạo hồ sơ HSSV chưa
+        let profile = await StudentProfile.findOne({ userId });
+
+        if (profile) {
+            // Nếu hồ sơ cũ đang chờ duyệt hoặc đã duyệt thành công thì không cho gửi trùng lặp
+            if (profile.isHSSVVerified === 'Đã xác thực') {
+                return res.status(400).json({ success: false, message: 'Tài khoản của bạn đã được xác thực HSSV rồi!' });
+            }
+            if (profile.isHSSVVerified === 'Đang chờ') {
+                return res.status(400).json({ success: false, message: 'Hồ sơ trước đó đang trong hàng đợi phê duyệt, vui lòng không gửi lại!' });
+            }
+
+            // Nếu hồ sơ cũ 'Bị từ chối' hoặc 'Chưa xác thực', cho phép cập nhật lại ảnh mới để gửi duyệt lại
+            profile.studentCardImage = studentCardImage;
+            profile.isHSSVVerified = 'Đang chờ';
+            await profile.save();
+        } else {
+            // Nếu chưa từng có bản ghi, tiến hành tạo mới
+            profile = await StudentProfile.create({
+                userId,
+                studentCardImage,
+                isHSSVVerified: 'Đang chờ',
+                studentIdCard: 'PENDING_ID',
+                schoolName: 'PENDING_SCHOOL'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Đã tải ảnh minh chứng thành công. Vui lòng đợi Ban quản trị Di Động Việt xác nhận.',
+            data: profile
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 const updateStudentProfile = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -39,7 +86,7 @@ const updateStudentProfile = async (req, res) => {
     }
 };
 
-const getOwnStudentProfile = async (req, res) => {
+const getMyStudentProfile = async (req, res) => {
     try {
         const profile = await StudentProfile.findOne({ userId: req.user._id })
             .populate('userId', 'name email phone');
@@ -54,64 +101,11 @@ const getOwnStudentProfile = async (req, res) => {
     }
 };
 
-// @desc    Người dùng tải ảnh minh chứng HSSV lên (Dùng Multer xử lý file)
-// @route   POST /api/student-profile/upload-card
-// @access  Private (HSSV/User)
-const uploadStudentCard = async (req, res) => {
-    try {
-        const userId = req.user._id;
-
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp ảnh thẻ HSSV làm minh chứng' });
-        }
-
-        const studentCardImage = `/uploads/verify/${req.file.filename}`;
-
-        // Kiểm tra xem user này đã từng tạo hồ sơ HSSV chưa
-        let profile = await StudentProfile.findOne({ userId });
-
-        if (profile) {
-            // Nếu hồ sơ cũ đang chờ duyệt hoặc đã duyệt thành công thì không cho gửi trùng lặp
-            if (profile.isHSSVVerified === 'Đã xác thực') {
-                return res.status(400).json({ success: false, message: 'Tài khoản của bạn đã được xác thực HSSV rồi!' });
-            }
-            if (profile.isHSSVVerified === 'Đang chờ') {
-                return res.status(400).json({ success: false, message: 'Hồ sơ trước đó đang trong hàng đợi phê duyệt, vui lòng không gửi lại!' });
-            }
-
-            // Nếu hồ sơ cũ 'Bị từ chối' hoặc 'Chưa xác thực', cho phép cập nhật lại ảnh mới để gửi duyệt lại
-            profile.studentCardImage = studentCardImage;
-            profile.isHSSVVerified = 'Đang chờ';
-            await profile.save();
-        } else {
-            // Nếu chưa từng có bản ghi, tiến hành tạo mới
-            profile = await StudentProfile.create({
-                userId,
-                studentCardImage,
-                isHSSVVerified: 'Đang chờ',
-                studentIdCard: 'PENDING_ID', // Tạm thời điền dữ liệu giả, Admin sẽ điền chuẩn khi duyệt
-                schoolName: 'PENDING_SCHOOL'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'Đã tải ảnh minh chứng thành công. Vui lòng đợi Ban quản trị Di Động Việt xác nhận.',
-            data: profile
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// @desc    Admin lấy danh sách hồ sơ đang chờ duyệt HSSV
-// @route   GET /api/student-profile/pending
-// @access  Private (Admin Only)
 const getPendingHSSV = async (req, res) => {
     try {
         const pendingProfiles = await StudentProfile.find({ isHSSVVerified: 'Đang chờ' })
-            .populate('_id', 'name email phone') // Lấy tên, email, sđt từ bảng User sang
-            .sort({ createdAt: 1 }); // Hồ sơ gửi trước duyệt trước
+            .populate('_id', 'name email phone')
+            .sort({ createdAt: 1 });
 
         res.status(200).json({ success: true, data: pendingProfiles });
     } catch (error) {
@@ -119,9 +113,6 @@ const getPendingHSSV = async (req, res) => {
     }
 };
 
-// @desc    Admin phê duyệt hoặc từ chối trạng thái HSSV
-// @route   PUT /api/student-profile/verify/:id
-// @access  Private (Admin Only)
 const verifyHSSVStatus = async (req, res) => {
     try {
         const { status, studentIdCard, schoolName, citizenId, rejectedReason } = req.body;
@@ -202,7 +193,7 @@ const verifyHSSVStatus = async (req, res) => {
 export {
     updateStudentProfile,
     uploadStudentCard,
-    getOwnStudentProfile,
+    getMyStudentProfile,
     getPendingHSSV,
     verifyHSSVStatus
 };

@@ -6,7 +6,14 @@ export const formatProductResponse = (product, userInfo = null) => {
     if (!product) return null;
 
     const productObj = product.toObject ? product.toObject() : product;
-    const basePrice = productObj.salePrice || productObj.price;
+    // Nếu sản phẩm có variants, lấy giá thấp nhất trong variants (ưu tiên salePrice nếu có)
+    let basePrice;
+    if (Array.isArray(productObj.variants) && productObj.variants.length > 0) {
+        const prices = productObj.variants.map(v => (v.salePrice ?? v.price ?? 0)).filter(p => p > 0);
+        basePrice = prices.length > 0 ? Math.min(...prices) : (productObj.salePrice || productObj.price);
+    } else {
+        basePrice = productObj.salePrice || productObj.price;
+    }
 
     const finalPrice = userInfo ? calculateDiscountedPrice(basePrice, {
         isDMember: userInfo.isDMember,
@@ -86,14 +93,6 @@ export const fetchRelatedProducts = async (productId, limit = 5) => {
 
     };
     return await Product.find(query).limit(limit);
-};
-
-// Cập nhật stock cho variant theo SKU
-export const updateStockForVariant = async (sku, newStock) => {
-    return await Product.updateOne(
-        { "variants.sku": sku },
-        { $set: { "variants.$.stock": newStock } }
-    );
 };
 
 // Lấy sản phẩm theo SKU

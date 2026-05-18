@@ -1,0 +1,209 @@
+{
+  "info": {
+    "name": "Di Động Việt - StudentProfile API Tests",
+    "description": "Collection riêng cho các test StudentProfile API của Di Động Việt.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create/Update Student Profile",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"studentIdCard\": \"HSSV2026001\",\n  \"schoolName\": \"Đại học Công nghệ\",\n  \"studentCardImage\": \"/uploads/verify/test-card.jpg\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/student-profile/update",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "student-profile", "update"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Profile update success\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "    pm.expect(jsonData.data).to.have.property('studentIdCard');",
+              "});",
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('student_profile_id', jsonData.data._id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Own Student Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/student-profile/me",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "student-profile", "me"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response has success true\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Pending HSSV (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/student-profile/admin/pending",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "student-profile", "admin", "pending"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response has success true\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verify HSSV Status (Admin)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"Đã xác thực\",\n  \"studentIdCard\": \"HSSV2026001\",\n  \"schoolName\": \"Đại học Công nghệ\",\n  \"citizenId\": \"123456789012\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/student-profile/admin/verify/{{student_profile_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "student-profile", "admin", "verify", "{{student_profile_id}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response has success true\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "your_admin_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "user_token",
+      "value": "your_user_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "voucher_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "voucher_code",
+      "value": "TEST_PROMO10",
+      "type": "string"
+    },
+    {
+      "key": "student_profile_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "student_card_file",
+      "value": "path/to/student-card.jpg",
+      "type": "string"
+    }
+  ]
+}

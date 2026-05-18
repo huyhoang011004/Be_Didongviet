@@ -1,5 +1,8 @@
 .env
 node_modules/
 .vscode/
-dist/
 .json
+AGENTS.md
+tests/
+babel.config.mjs
+jest.config.mjs

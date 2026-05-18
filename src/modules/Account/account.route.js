@@ -5,14 +5,14 @@ import {
     getUserProfile,
     updateUserProfile,
     deleteUserProfile
-} from '#account/Admin/User/account.user.controller.js';
+} from '#account/account.controller.js';
 
 import {
     getAllUsersForAdmin,
     createUserByAdmin,
     updateUserByAdmin,
     deleteUserByAdmin
-} from '#account/Admin/account.controller.js';
+} from '#account/account.admin.controller.js';
 
 import { protect, adminRole } from '#middlewares/auth.middleware.js';
 
