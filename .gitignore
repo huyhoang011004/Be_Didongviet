@@ -6,3 +6,4 @@ AGENTS.md
 tests/
 babel.config.mjs
 jest.config.mjs
+Test_Apt/
