@@ -14,6 +14,13 @@ import {
 
 import { protect, adminRole } from '#middlewares/auth.middleware.js';
 
+// --- ADMIN ROUTES ---
+// Xóa giỏ hàng của user: DELETE /api/cart/admin/:userId
+router.delete('/admin/:userId', adminRole, deleteCart);
+
+// Lấy tất cả giỏ hàng: GET /api/cart/admin/all
+router.get('/admin/all', adminRole, getAllCarts);
+
 // --- USER ROUTES ---
 // Lấy giỏ hàng của mình: GET /api/cart
 router.get('/', protect, getCart);
@@ -24,17 +31,10 @@ router.post('/', protect, addToCart);
 // Cập nhật số lượng: PUT /api/cart
 router.put('/', protect, updateCartItem);
 
-// Xóa phân loại cụ thể: DELETE /api/cart/:productId/:variantId
-router.delete('/:productId/:variantId', protect, removeFromCart);
-
 // Áp dụng mã giảm giá: POST /api/cart/apply-voucher
 router.post('/apply-voucher', protect, applyVoucher);
 
-// --- ADMIN ROUTES ---
-// Lấy tất cả giỏ hàng: GET /api/cart/admin/all
-router.get('/admin/all', protect, adminRole, getAllCarts);
-
-// Xóa giỏ hàng của user: DELETE /api/cart/admin/:userId
-router.delete('/admin/:userId', protect, adminRole, deleteCart);
+// Xóa phân loại cụ thể: DELETE /api/cart/:productId/:variantId
+router.delete('/:productId/:variantId', protect, removeFromCart);
 
 export default router;

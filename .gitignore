@@ -1,9 +1,7 @@
 .env
 node_modules/
 .vscode/
-.json
-AGENTS.md
 tests/
-babel.config.mjs
-jest.config.mjs
-Test_Apt/
+testApi/
+uploads/
+AGENTS.md

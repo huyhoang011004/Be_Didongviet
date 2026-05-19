@@ -2,6 +2,8 @@ import Cart from '#cart/Cart.model.js';
 import Product from '#product/Product.model.js';
 import Voucher from '#voucher/Voucher.model.js';
 import StudentProfile from '#studentProfile/StudentProfile.model.js';
+import { calculateVoucherDiscount } from '#utils/voucherHelper.js';
+
 // --- THÊM VÀO GIỎ HÀNG ---
 export const addToCart = async (req, res) => {
     try {
@@ -109,47 +111,75 @@ export const removeFromCart = async (req, res) => {
 };
 
 // --- HIỂN THỊ GIỎ HÀNG ---
+
 export const getCart = async (req, res) => {
     try {
-
-        let cart = await Cart.findOne({
-            user: req.user._id
-        });
+        let cart = await Cart.findOne({ user: req.user._id });
 
         if (!cart) {
             return res.status(200).json({
                 success: true,
-                data: {
-                    items: [],
-                    totalPrice: 0
-                }
+                data: { items: [], totalPrice: 0, discountAmount: 0, finalPrice: 0, appliedVoucher: null }
             });
         }
 
-        if (!Array.isArray(cart.items)) {
-            cart.items = [];
+        if (!Array.isArray(cart.items)) cart.items = [];
+
+        // Populate thông tin sản phẩm đầy đủ để hiển thị lên giao diện
+        await cart.populate('items.product', 'name images category');
+
+        // Trường hợp giỏ hàng trống (Xử lý nhanh không cần đi tiếp)
+        if (cart.items.length === 0) {
+            cart.appliedVoucher = null;
+            cart.discountAmount = 0;
+            cart.finalPrice = 0;
+            await cart.save();
+            return res.status(200).json({ success: true, data: cart });
         }
 
-        await cart.populate(
-            'items.product',
-            'name images category'
-        );
+        // Tạm thời lấy tổng tiền gốc sau khi đã chạy lệnh populate hoặc tính toán xong
+        const currentSubTotal = cart.totalPrice;
 
+        // XỬ LÝ VOUCHER ĐỂ CẬP NHẬT VÀO DATABASE
+        if (cart.appliedVoucher) {
+            const { discount, reason } = await calculateVoucherDiscount(cart.appliedVoucher, currentSubTotal, req.user._id);
+
+            if (reason) {
+                // NẾU VOUCHER BỊ LỖI HOẶC HẾT HẠN:
+                // Xóa trắng dữ liệu mã giảm giá ngay trong DB
+                cart.appliedVoucher = null;
+                cart.discountAmount = 0;
+                cart.finalPrice = currentSubTotal;
+
+                await cart.save(); // Lưu lại thay đổi vào database
+            } else {
+                // NẾU VOUCHER HỢP LỆ:
+                // Cập nhật số tiền giảm và giá cuối cùng mới nhất vào DB
+                cart.discountAmount = discount;
+                cart.finalPrice = Math.max(0, currentSubTotal - discount);
+
+                await cart.save(); // Lưu lại để đồng bộ database
+            }
+        } else {
+            // NẾU GIỎ HÀNG KHÔNG ÁP DỤNG VOUCHER NÀO:
+            // Đảm bảo database sạch sẽ, không lưu đè dữ liệu cũ rác
+            cart.discountAmount = 0;
+            cart.finalPrice = currentSubTotal;
+
+            await cart.save();
+        }
+
+        // Trả về object Giỏ hàng đã được đồng bộ chuẩn chỉnh từ DB
         return res.status(200).json({
             success: true,
             data: cart
         });
 
     } catch (error) {
-
-        console.log(error);
-
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
+
 // --- ÁP DỤNG MÃ GIẢM GIÁ ---
 export const applyVoucher = async (req, res) => {
     try {
@@ -200,20 +230,19 @@ export const applyVoucher = async (req, res) => {
             }
         }
 
-        // 5. CẬP NHẬT TRỰC TIẾP VÀO DATABASE
+        // 5. CẬP NHẬT VÀO DATABASE (Chỉ lưu code, không lưu discount cố định)
         cart.appliedVoucher = voucher.code;
-        cart.discountAmount = discount;
 
-        // Lệnh save() này sẽ kích hoạt middleware pre('save') để tính finalPrice
-        await cart.save();
+        await cart.save(); // Khi save, pre-save middleware chỉ cần tính subTotal của các item.
 
         res.status(200).json({
             success: true,
+            message: 'Áp dụng mã thành công',
             data: {
                 voucherCode: cart.appliedVoucher,
-                subTotal: cart.subTotal,
-                discountAmount: cart.discountAmount,
-                finalPrice: cart.finalPrice
+                subTotal: currentSubTotal,
+                discountAmount: discount, // Trả về số tiền giảm tạm tính để FE hiển thị ngay lúc đó
+                finalPrice: currentSubTotal - discount
             }
         });
 

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import slugify from '#utils/slugify.js';
+import Account from '#account/Account.model.js';
 
 const blogSchema = new mongoose.Schema({
     title: {
@@ -24,7 +25,7 @@ const blogSchema = new mongoose.Schema({
     },
     author: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Liên kết đến tài khoản Admin/Staff đã viết bài
+        ref: 'Account', // Liên kết đến tài khoản Admin/Staff đã viết bài
         required: true
     },
     category: {
@@ -58,11 +59,10 @@ const blogSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Tự động tạo slug trước khi lưu
-blogSchema.pre('save', function (next) {
+blogSchema.pre('save', async function () {
     if (this.isModified('title')) {
         this.slug = slugify(this.title);
     }
-    next();
 });
 
 export default mongoose.model('Blog', blogSchema);

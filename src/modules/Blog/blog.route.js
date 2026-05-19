@@ -8,7 +8,7 @@ import {
     deleteBlog,
     getRelatedBlogs
 } from '#blog/blog.controller.js';
-import { protect } from '#middlewares/auth.middleware.js';
+import { protect, staffRole } from '#middlewares/auth.middleware.js';
 
 // Route công khai
 router.get('/', getAllBlogs);
@@ -16,9 +16,9 @@ router.get('/slug/:slug', getBlogBySlug);
 router.get('/related', getRelatedBlogs);
 
 // Route quản trị
-router.post('/', protect, createBlog);
+router.post('/', staffRole, createBlog);
 router.route('/:id')
-    .put(protect, updateBlog)
-    .delete(protect, deleteBlog);
+    .put(staffRole, updateBlog)
+    .delete(staffRole, deleteBlog);
 
 export default router;

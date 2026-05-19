@@ -1,39 +1,193 @@
+import mongoose from 'mongoose';
 import Order from '#order/Order.model.js';
 import Product from '#product/Product.model.js';
+import Account from '#account/Account.model.js';
+import Cart from '#cart/Cart.model.js';
+
+// XEM TRƯỚC HÓA ĐƠN VÀ LẤY ĐỊA CHỈ TỰ ĐỘNG (Dùng khi vừa vào trang Order)
+export const checkoutPreview = async (req, res) => {
+    try {
+        const { orderItems } = req.body;
+        if (!orderItems || orderItems.length === 0) {
+            return res.status(400).json({ message: 'Không có sản phẩm nào để thanh toán' });
+        }
+
+        // 1. Tìm thông tin Account của user đang đăng nhập
+        const userProfile = await Account.findById(req.user._id);
+
+        // Tìm địa chỉ được đánh dấu mặc định (isDefault = true)
+        const defaultAddress = userProfile?.address?.find(addr => addr.isDefault === true)
+            || userProfile?.address?.[0]; // Nếu không có cái nào mặc định, lấy cái đầu tiên
+
+        // Tạo object trả về cấu trúc chi tiết cho Front-end
+        const defaultShipping = {
+            fullName: userProfile?.name || '',
+            phone: userProfile?.phone || '',
+            province: defaultAddress?.province || '',
+            district: defaultAddress?.district || '',
+            ward: defaultAddress?.ward || '',
+            streetAddress: defaultAddress?.streetAddress || ''
+        };
+
+        // 2. Logic tính toán giá tiền 
+        let itemsPrice = 0;
+        const verifiedItems = [];
+        for (const item of orderItems) {
+            const product = await Product.findById(item.product);
+            if (!product) return res.status(404).json({ message: `Không tìm thấy sản phẩm ID: ${item.product}` });
+
+            let variant = null;
+            if (item.variantId) {
+                variant = Array.isArray(product.variants)
+                    ? product.variants.find(v => String(v._id) === String(item.variantId))
+                    : null;
+                if (!variant) {
+                    return res.status(404).json({ message: `Không tìm thấy biến thể cho sản phẩm ID: ${item.product}` });
+                }
+            }
+
+            const price = variant
+                ? (variant.salePrice || variant.price || 0)
+                : (product.price || (Array.isArray(product.variants) && product.variants.length > 0
+                    ? (product.variants[0].salePrice || product.variants[0].price || 0)
+                    : 0));
+
+            itemsPrice += price * item.qty;
+            verifiedItems.push({
+                product: product._id,
+                variantId: item.variantId || null,
+                name: product.name,
+                qty: item.qty,
+                image: variant?.variantImage || product.featuredImage || product.images?.[0]?.url || '',
+                price
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            shippingAddress: defaultShipping, // Trả về object địa chỉ đã bóc tách chi tiết
+            orderItems: verifiedItems,
+            itemsPrice,
+            shippingPrice: itemsPrice > 5000000 ? 0 : 30000,
+            totalPrice: itemsPrice
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 // 1. Tạo đơn hàng & Trừ tồn kho
 export const addOrderItems = async (req, res) => {
+    // Sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu (Nếu lỗi bất kỳ bước nào, toàn bộ sẽ rollback)
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
-        const { orderItems, ...otherData } = req.body;
+        const {
+            orderItems,
+            shippingAddress,
+            paymentMethod,
+            discountDMember,
+            tradeInBonus,
+            shippingPrice
+        } = req.body;
 
         if (!orderItems || orderItems.length === 0) {
-            return res.status(400).json({ message: 'Giỏ hàng trống' });
+            await session.abortTransaction();
+            return res.status(400).json({ message: 'Đơn hàng trống' });
         }
 
-        // Kiểm tra tồn kho trước khi tạo đơn
+        // 1. Kiểm tra ngặt nghèo thông tin nhận hàng
+        if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.province || !shippingAddress.district || !shippingAddress.ward || !shippingAddress.streetAddress) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin nhận hàng (Tên, Số điện thoại, Tỉnh/thành, Quận/huyện, Phường/xã, Địa chỉ)' });
+        }
+
+        let calculatedItemsPrice = 0;
+        const finalOrderItems = [];
+
+        // 2. Duyệt qua từng sản phẩm để vừa kiểm tra giá, vừa trừ kho an toàn
         for (const item of orderItems) {
-            const product = await Product.findById(item.product);
-            if (product.stock < item.qty) {
-                return res.status(400).json({ message: `Sản phẩm ${product.name} đã hết hàng hoặc không đủ số lượng` });
+            let updatedProduct = null;
+            let variant = null;
+
+            if (item.variantId) {
+                updatedProduct = await Product.findOneAndUpdate(
+                    { _id: item.product, 'variants._id': item.variantId, 'variants.stock': { $gte: item.qty } },
+                    { $inc: { 'variants.$.stock': -item.qty } },
+                    { session, new: true }
+                );
+                if (updatedProduct) {
+                    variant = updatedProduct.variants.find(v => String(v._id) === String(item.variantId));
+                }
             }
+
+            if (!updatedProduct) {
+                updatedProduct = await Product.findOneAndUpdate(
+                    { _id: item.product, stock: { $gte: item.qty } },
+                    { $inc: { stock: -item.qty } },
+                    { session, new: true }
+                );
+            }
+
+            if (!updatedProduct || (item.variantId && !variant)) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ message: 'Sản phẩm có ID hoặc biến thể không đủ số lượng trong kho, vui lòng kiểm tra lại!' });
+            }
+
+            const price = variant
+                ? (variant.salePrice || variant.price || 0)
+                : (updatedProduct.price || 0);
+
+            calculatedItemsPrice += price * item.qty;
+
+            finalOrderItems.push({
+                product: updatedProduct._id,
+                variantId: item.variantId || null,
+                name: updatedProduct.name,
+                qty: item.qty,
+                image: variant?.variantImage || updatedProduct.featuredImage || updatedProduct.images?.[0]?.url || '',
+                price
+            });
         }
 
+        // 3. Tính toán tổng tiền cuối cùng (Final Price)
+        const totalDiscount = (discountDMember || 0) + (tradeInBonus || 0);
+        const totalPrice = (calculatedItemsPrice + (shippingPrice || 0)) - totalDiscount;
+
+        // 4. Khởi tạo và tạo đơn hàng mới
         const order = new Order({
             user: req.user._id,
-            orderItems,
-            ...otherData
+            orderItems: finalOrderItems,
+            shippingAddress,
+            paymentMethod,
+            itemsPrice: calculatedItemsPrice,
+            discountDMember,
+            tradeInBonus,
+            shippingPrice,
+            totalPrice: totalPrice < 0 ? 0 : totalPrice, // Đảm bảo không bị âm tiền
         });
 
-        const createdOrder = await order.save();
+        const createdOrder = await order.save({ session });
 
-        // TRỪ TỒN KHO SAU KHI ĐẶT HÀNG THÀNH CÔNG
-        const updateStockPromises = orderItems.map(item =>
-            Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.qty } })
+        // 5. Cập nhật: Nếu mua từ Giỏ hàng thành công, xóa các mặt hàng đó khỏi Cart của user
+        const productIds = finalOrderItems.map(item => item.product);
+        await Cart.findOneAndUpdate(
+            { user: req.user._id },
+            { $pull: { items: { product: { $in: productIds } } } },
+            { session }
         );
-        await Promise.all(updateStockPromises);
+
+        // Hoàn tất giao dịch
+        await session.commitTransaction();
+        session.endSession();
 
         res.status(201).json({ success: true, data: createdOrder });
     } catch (error) {
+        // Có lỗi phát sinh -> Hủy toàn bộ tiến trình, hoàn lại kho tự động ngay lập tức
+        await session.abortTransaction();
+        session.endSession();
         res.status(500).json({ success: false, message: error.message });
     }
 };

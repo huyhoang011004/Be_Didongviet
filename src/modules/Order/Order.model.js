@@ -1,32 +1,39 @@
-// Mô hình dữ liệu đơn hàng của Di Động Việt
 import mongoose from 'mongoose';
+import Account from '#account/Account.model.js';
 
 const orderSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Account',
         required: true
     },
-    // Danh sách sản phẩm trong đơn hàng (iPhone, Samsung, MacBook, Phụ kiện...) [1, 2]
+    // Danh sách sản phẩm trong đơn hàng 
     orderItems: [
         {
             name: { type: String, required: true },
-            qty: { type: Number, required: true },
+            qty: { type: Number, required: true }, // Số lượng đặt mua
             image: { type: String, required: true },
-            price: { type: Number, required: true }, // Giá tại thời điểm mua (đã giảm Flash Sale) [2, 3]
+            price: { type: Number, required: true }, // Giá tại thời điểm mua 
             product: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'Product',
                 required: true
+            },
+            variantId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Product',
+                required: false
             }
         }
     ],
-    // Thông tin nhận hàng của khách hàng [4]
+    // Thông tin nhận hàng của khách hàng 
     shippingAddress: {
         fullName: { type: String, required: true },
         phone: { type: String, required: true },
-        address: { type: String, required: true },
-        city: { type: String, required: true }
+        province: { type: String, required: true },
+        district: { type: String, required: true },
+        ward: { type: String, required: true },
+        streetAddress: { type: String, required: true }
     },
     // Phương thức thanh toán: COD, VNPAY hoặc Trả góp 0% [5]
     paymentMethod: {
@@ -42,14 +49,13 @@ const orderSchema = new mongoose.Schema({
     },
     // Các mức chiết khấu đặc biệt của Di Động Việt
     itemsPrice: { type: Number, required: true, default: 0.0 },
-    discountHSSV: { type: Number, default: 0.0 }, // Giảm thêm từ 200K - 600K cho HSSV [7, 8]
-    discountDMember: { type: Number, default: 0.0 }, // Giảm thêm 1% cho thành viên D.Member [2, 9]
-    tradeInBonus: { type: Number, default: 0.0 }, // Trợ giá Thu cũ đổi mới (lên đến 5 triệu) [9, 10]
+    discountDMember: { type: Number, default: 0.0 }, // Ưu đãi D.Member 
+    tradeInBonus: { type: Number, default: 0.0 }, // Trợ giá Thu cũ đổi mới 
 
     shippingPrice: { type: Number, required: true, default: 0.0 },
     totalPrice: { type: Number, required: true, default: 0.0 },
 
-    // Quản lý trạng thái đơn hàng để hỗ trợ tra cứu [1]
+    // Quản lý trạng thái đơn hàng để hỗ trợ tra cứu 
     isPaid: { type: Boolean, required: true, default: false },
     paidAt: { type: Date },
     isDelivered: { type: Boolean, required: true, default: false },

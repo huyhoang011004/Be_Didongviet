@@ -28,8 +28,6 @@ const protect = async (req, res, next) => {
     if (!token) {
         return res.status(401).json({ success: false, message: 'Không có token, quyền truy cập bị từ chối' });
     }
-
-
 };
 
 const admin = (req, res, next) => {
@@ -44,6 +42,20 @@ const admin = (req, res, next) => {
 };
 
 const adminRole = [protect, admin];
+
+const staff = (req, res, next) => {
+    if (req.user && (req.user.role === 'admin' || req.user.role === 'staff')) {
+        next();
+    } else {
+        res.status(403).json({
+            success: false,
+            message: 'Quyền truy cập bị từ chối: Chỉ dành cho Admin hoặc Staff'
+        });
+    }
+};
+
+const staffRole = [protect, staff];
+
 const validateUserFields = (req, res, next) => {
     const { email, phone } = req.body;
 
@@ -77,4 +89,4 @@ const validateUserFields = (req, res, next) => {
     next();
 };
 
-export { protect, adminRole, validateUserFields };
+export { protect, adminRole, staffRole, validateUserFields };

@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const cartSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Account',
         required: true,
         unique: true
     },
@@ -41,46 +41,51 @@ const cartSchema = new mongoose.Schema({
         default: []
     },
 
-    totalPrice: {
+    totalPrice: { // Lưu số tiền gốc trong DB
         type: Number,
         default: 0
     },
 
     appliedVoucher: {
         type: String,
-        default: null
+        default: null,
+        uppercase: true
     },
 
-    discountAmount: {
+    discountAmount: { // Lưu số tiền được giảm vào DB
         type: Number,
         default: 0
     },
-
-    finalPrice: {
+    finalPrice: { // Lưu số tiền sau giảm vào DB
         type: Number,
         default: 0
     }
 
 }, { timestamps: true });
 
+// Middleware xử lý tự động trước khi lưu vào DB
 cartSchema.pre('save', async function () {
+    const items = Array.isArray(this.items) ? this.items : [];
 
-    const items = Array.isArray(this.items)
-        ? this.items
-        : [];
-
+    // 1. Tính toán lại tổng tiền hàng gốc
     this.totalPrice = items.reduce((sum, item) => {
-        return sum + (
-            (item.price || 0) *
-            (item.quantity || 0)
-        );
+        return sum + ((item.price || 0) * (item.quantity || 0));
     }, 0);
 
-    this.finalPrice =
-        this.totalPrice - (this.discountAmount || 0);
-
-    if (this.finalPrice < 0) {
+    // 2. Nếu giỏ hàng trống -> Xóa sạch dấu vết Voucher và đưa tiền giảm về 0
+    if (items.length === 0) {
+        this.appliedVoucher = null;
+        this.discountAmount = 0;
         this.finalPrice = 0;
+    } else {
+        // Nếu có hàng nhưng không áp mã, finalPrice bằng đúng totalPrice
+        if (!this.appliedVoucher) {
+            this.discountAmount = 0;
+            this.finalPrice = this.totalPrice;
+        } else {
+            // Đảm bảo finalPrice không bị âm tiền
+            this.finalPrice = Math.max(0, this.totalPrice - (this.discountAmount || 0));
+        }
     }
 });
 
