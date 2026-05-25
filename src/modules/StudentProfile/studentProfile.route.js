@@ -7,19 +7,10 @@ import {
     verifyHSSVStatus
 } from '#studentProfile/studentProfile.controller.js';
 
-import { protect, adminRole } from '#middlewares/auth.middleware.js';
+import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
 import upload from '#middlewares/upload.middleware.js';
 
 const router = express.Router();
-
-// --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN VẬN HÀNH ---
-// Cho phép cả Nhân viên (Staff) và Admin thực hiện kiểm duyệt
-const staffAuth = [protect, (req, res, next) => {
-    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Staff')) {
-        return next();
-    }
-    return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
-}];
 
 // ==========================================
 // 1. CLIENT ROUTES (Dành cho khách hàng)
@@ -40,9 +31,9 @@ router.get('/me', protect, getMyStudentProfile);
 // ==========================================
 
 // Nhân viên lấy danh sách các hồ sơ đang nằm trong hàng đợi duyệt
-router.get('/management/pending', staffAuth, getPendingHSSV);
+router.get('/management/pending', staffRole, getPendingHSSV);
 
 // Nhân viên hoặc Admin trực tiếp phê duyệt / từ chối hồ sơ thẻ sinh viên
-router.put('/management/verify/:id', staffAuth, verifyHSSVStatus);
+router.put('/management/verify/:id', staffRole, verifyHSSVStatus);
 
 export default router;

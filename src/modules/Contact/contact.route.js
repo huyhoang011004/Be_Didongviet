@@ -1,18 +1,8 @@
 import express from 'express';
 import { contactController } from './contact.controller.js';
-// Import thêm staffRole từ middleware auth của bạn
-import { protect, adminRole, staffRole } from '../middleware/auth.js';
+import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
 
 const router = express.Router();
-
-// --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN VẬN HÀNH ---
-// Cho phép cả Nhân viên (Staff/CSKH) và Admin truy cập hệ thống liên hệ
-const staffAuth = [protect, (req, res, next) => {
-    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Staff')) {
-        return next();
-    }
-    return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
-}];
 
 // ==========================================
 // 1. PUBLIC ROUTES (Dành cho khách hàng)
@@ -27,10 +17,10 @@ router.post('/submit', contactController.submitContact);
 // ==========================================
 
 // Nhân viên CSKH lấy danh sách tất cả các liên hệ để xử lý
-router.get('/all', staffAuth, contactController.getContacts);
+router.get('/all', staffRole, contactController.getContacts);
 
 // Nhân viên cập nhật trạng thái liên hệ (Ví dụ: Đã gọi điện, Đã xử lý xong...)
-router.patch('/update/:contactId', staffAuth, contactController.updateContactStatus);
+router.patch('/update/:contactId', staffRole, contactController.updateContactStatus);
 
 //  Chỉ có Admin tối cao mới có quyền xóa dữ liệu liên hệ/khiếu nại của khách
 router.delete('/delete/:contactId', protect, adminRole, contactController.deleteContact);

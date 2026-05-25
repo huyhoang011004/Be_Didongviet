@@ -1,5 +1,6 @@
+import express from 'express';
 import { reviewController } from './review.controller.js';
-import { protect } from '../middleware/auth.js'; // Giả định file middleware check login của bạn
+import { protect } from '#middlewares/auth.middleware.js';
 
 const router = express.Router();
 

@@ -14,13 +14,6 @@ import {
 import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
 
 // --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN VẬN HÀNH ---
-// Cho phép cả Nhân viên (Staff) và Admin thực hiện xử lý đơn hàng
-const staffAuth = [protect, (req, res, next) => {
-    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Staff')) {
-        return next();
-    }
-    return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
-}];
 
 // ==========================================
 // 1. CLIENT & PUBLIC ROUTES (Khách hàng & Tra cứu public)
@@ -44,9 +37,9 @@ router.get('/track', trackOrderPublic);
 // ==========================================
 
 // Nhân viên có thể xem danh sách tất cả đơn hàng để chuẩn bị đóng gói
-router.get('/', staffAuth, getAllOrders);
+router.get('/', staffRole, getAllOrders);
 
 // Nhân viên kho/giao vận cập nhật trạng thái đơn hàng sang "Đang giao hàng/Đã giao"
-router.put('/:id/deliver', staffAuth, updateOrderToDelivered);
+router.put('/:id/deliver', staffRole, updateOrderToDelivered);
 
 export default router;

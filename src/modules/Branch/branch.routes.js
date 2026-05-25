@@ -1,5 +1,6 @@
+import express from 'express';
 import * as branchController from './branch.controller.js';
-import { protect, adminRole } from '#middlewares/authMiddleware.js';
+import { protect, adminRole } from '#middlewares/auth.middleware.js';
 
 const router = express.Router();
 

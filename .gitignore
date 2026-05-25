@@ -5,3 +5,5 @@ tests/
 testApi/
 uploads/
 AGENTS.md
+.cjs
+.txt

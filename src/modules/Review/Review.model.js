@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import Product from '#product/Product.model.js';
-import Account from '#auth/Auth.model.js';
+import Account from '#account/Account.model.js';
 
 const reviewSchema = new mongoose.Schema({
     product: {

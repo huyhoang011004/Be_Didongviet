@@ -73,7 +73,7 @@ export const contactController = {
     updateContactStatus: async (req, res) => {
         try {
             const { contactId } = req.params;
-            const { status, adminNotes } = req.body;
+            const { status, notes } = req.body;
             const adminId = req.user._id; // Lấy ID của Admin từ token đăng nhập
 
             const contact = await Contact.findById(contactId);
@@ -83,7 +83,7 @@ export const contactController = {
 
             // Cập nhật các thông tin xử lý nội bộ
             if (status) contact.status = status;
-            if (adminNotes !== undefined) contact.adminNotes = adminNotes;
+            if (notes !== undefined) contact.notes = notes;
             contact.processedBy = adminId;
 
             await contact.save();

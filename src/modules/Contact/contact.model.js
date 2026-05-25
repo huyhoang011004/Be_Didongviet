@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Account from '#auth/Auth.model.js';
+import Account from '#account/Account.model.js';
 const contactSchema = new mongoose.Schema({
     fullName: {
         type: String,
@@ -20,7 +20,7 @@ const contactSchema = new mongoose.Schema({
     subject: {
         type: String,
         required: true,
-        enum: ['Tư vấn mua hàng', 'Khiếu nại dịch vụ', 'Hỗ trợ kỹ thuật', 'Thu cũ đổi mới', 'Khác'],
+        enum: ['Tư vấn mua hàng', 'Khiếu nại dịch vụ', 'Hỗ trợ kỹ thuật', 'Bảo hành sản phẩm', 'Thu cũ đổi mới', 'Khác'],
         default: 'Tư vấn mua hàng'
     },
     message: {
@@ -30,12 +30,12 @@ const contactSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Chưa xử lý', 'Đang xử lý', 'Đã giải quyết', 'Đã hủy'],
+        enum: ['Chưa xử lý', 'Đang xử lý', 'Đã xử lý', 'Đã hủy'],
         default: 'Chưa xử lý'
     },
-    adminNotes: {
+    notes: {
         type: String,
-        default: '' // Ghi chú của nhân viên CSKH khi gọi điện xử lý với khách
+        default: ''
     },
     processedBy: {
         type: mongoose.Schema.Types.ObjectId,

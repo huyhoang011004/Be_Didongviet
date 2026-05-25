@@ -20,7 +20,9 @@ import voucherRoute from '#voucher/voucher.route.js';
 import cartRoute from '#cart/cart.route.js';
 import blogRoute from '#blog/blog.route.js';
 import studentProfileRoute from '#studentProfile/studentProfile.route.js';
-
+import branchRoute from '#branch/branch.routes.js';
+import contactRoute from '#contact/contact.route.js';
+import reviewRoute from '#review/review.route.js';
 dotenv.config();
 if (process.env.NODE_ENV !== 'test') {
     connectDB();
@@ -53,6 +55,10 @@ app.use('/api/v1/vouchers', voucherRoute);
 app.use('/api/v1/cart', cartRoute);
 app.use('/api/v1/blogs', blogRoute);
 app.use('/api/v1/student-profile', studentProfileRoute);
+app.use('/api/v1/branches', branchRoute);
+app.use('/api/v1/contacts', contactRoute);
+app.use('/api/v1/reviews', reviewRoute);
+
 app.get('/', (req, res) => {
     res.send('API Di Động Việt đang hoạt động ổn định...');
 });

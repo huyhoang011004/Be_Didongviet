@@ -25,16 +25,6 @@ import {
 import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
 import upload from '#middlewares/upload.middleware.js';
 
-// --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN ---
-const adminAuth = [protect, adminRole];
-// Tổ hợp quyền vận hành: Cho phép cả Nhân viên (Staff) và Admin truy cập
-const staffAuth = [protect, (req, res, next) => {
-    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Staff')) {
-        return next();
-    }
-    return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
-}];
-
 // ==========================================
 // 1. PUBLIC ROUTES (Dành cho khách hàng)
 // ==========================================
@@ -59,25 +49,25 @@ const productUpload = upload.fields([
 ]);
 
 // Chuyển sang quyền staffAuth: Cho phép nhân viên kiểm tra kho để kịp báo nhập hàng
-router.get('/low-stock', staffAuth, getLowStockProducts);
+router.get('/low-stock', staffRole, getLowStockProducts);
 
 // Các tác vụ thêm/sửa thông tin sản phẩm (Nhân viên thao tác hàng ngày)
 router.route('/')
-    .post(staffAuth, productUpload, createProduct);
+    .post(staffRole, productUpload, createProduct);
 
 router.route('/:id')
-    .put(staffAuth, productUpload, updateProduct)
-    .delete(adminAuth, deleteProduct); // Chỉ có Admin mới được phép xóa hẳn sản phẩm
+    .put(staffRole, productUpload, updateProduct)
+    .delete(adminRole, deleteProduct); // Chỉ có Admin mới được phép xóa hẳn sản phẩm
 
 // Các tác vụ cập nhật, quản lý media sản phẩm giao cho Nhân viên
 router.route('/:id/images/:imageId')
-    .put(staffAuth, upload.single('image'), replaceImage)
-    .delete(staffAuth, deleteImage);
+    .put(staffRole, upload.single('image'), replaceImage)
+    .delete(staffRole, deleteImage);
 
 router.route('/:id/images/reorder')
-    .put(staffAuth, reorderImages);
+    .put(staffRole, reorderImages);
 
 router.route('/:id/images/:imageId/thumbnail')
-    .put(staffAuth, setThumbnail);
+    .put(staffRole, setThumbnail);
 
 export default router;
