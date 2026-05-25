@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import slugify from '#utils/slugify.js';
-
+import Branch from '../Branch/Branch.model.js';
 const productSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, index: true },
     images: [{
@@ -13,7 +13,9 @@ const productSchema = new mongoose.Schema({
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     brand: { type: String, required: true },
     description: { type: String },
-    ratings: { type: Number, default: 0 },
+    // Bổ sung vào productSchema của bạn
+    ratingsAverage: { type: Number, default: 0 }, // Điểm trung bình số sao
+    ratingsCount: { type: Number, default: 0 },    // Tổng số lượt đánh giá
     slug: { type: String, unique: true },
 
     // CHI TIẾT CÁC PHIÊN BẢN
@@ -23,7 +25,10 @@ const productSchema = new mongoose.Schema({
         rom: { type: String, required: true }, // Ví dụ: 128GB, 256GB, 1TB
         price: { type: Number, required: true }, // Giá gốc của bản này
         salePrice: { type: Number }, // Giá khuyến mãi riêng cho bản này
-        stock: { type: Number, default: 0 }, // Tồn kho riêng cho bản này
+        inventory: [{
+            branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
+            stock: { type: Number, default: 0 }
+        }],
         sku: { type: String, unique: true }, // Mã định danh kho hàng (ví dụ: IP16PM-256-GOLD)
         variantImage: {
             type: String,
@@ -77,17 +82,17 @@ productSchema.virtual('priceRange').get(function () {
 
 });
 
-// Virtual: Tổng tồn kho từ tất cả variants
+// Virtual: Tổng tồn kho từ tất cả variants và tất cả chi nhánh
 productSchema.virtual('totalStock').get(function () {
-
-    const variants = Array.isArray(this.variants)
-        ? this.variants
-        : [];
+    const variants = Array.isArray(this.variants) ? this.variants : [];
 
     return variants.reduce((total, variant) => {
-        return total + (variant.stock || 0);
+        // Cộng tổng stock từ mảng inventory của từng variant
+        const variantTotalStock = (variant.inventory || []).reduce((sum, inv) => {
+            return sum + (inv.stock || 0);
+        }, 0);
+        return total + variantTotalStock;
     }, 0);
-
 });
 
 export default mongoose.model('Product', productSchema);

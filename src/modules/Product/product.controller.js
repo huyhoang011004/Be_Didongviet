@@ -16,6 +16,104 @@ export const getAllProducts = async (req, res) => {
     }
 };
 
+export const searchProducts = async (req, res, next) => {
+    try {
+        const { q } = req.query;
+        if (!q || !q.trim()) return res.status(200).json({ success: true, data: [] });
+
+        const products = await Product.aggregate([
+            // 1. Tìm kiếm thông minh bằng Atlas Search trên các trường mong muốn
+            {
+                $search: {
+                    index: "default",
+                    text: {
+                        query: q.trim(),
+                        path: ["name", "slug", "brand"],
+                        fuzzy: {
+                            maxEdits: 2,
+                            prefixLength: 1,
+                            maxExpansions: 50
+                        }
+                    }
+                }
+            },
+            // 2. Giới hạn 10 kết quả tốt nhất để làm preview gọn nhẹ
+            { $limit: 10 },
+            // 3. Sử dụng $project để định hình và format dữ liệu trả về giống cấu trúc FE cần
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    slug: 1,
+                    // Lấy ảnh có isThumbnail: true hoặc lấy phần tử đầu tiên trong mảng images
+                    thumbnail: {
+                        $let: {
+                            vars: {
+                                thumbImg: {
+                                    $filter: {
+                                        input: "$images",
+                                        as: "img",
+                                        cond: { $eq: ["$$img.isThumbnail", true] }
+                                    }
+                                }
+                            },
+                            in: {
+                                $cond: {
+                                    if: { $gt: [{ $size: "$$thumbImg" }, 0] },
+                                    then: { $arrayElemAt: ["$$thumbImg.url", 0] },
+                                    else: { $arrayElemAt: ["$images.url", 0] }
+                                }
+                            }
+                        }
+                    },
+                    // Tìm giá thấp nhất từ mảng variants để làm giá hiển thị đại diện (priceRange.min)
+                    price: {
+                        $min: {
+                            $map: {
+                                input: "$variants",
+                                as: "v",
+                                in: { $ifNull: ["$$v.salePrice", "$$v.price"] }
+                            }
+                        }
+                    },
+                    // Tìm giá gốc lớn nhất để làm giá cũ (gạch chân) nếu có salePrice
+                    oldPrice: {
+                        $max: {
+                            $map: {
+                                input: "$variants",
+                                as: "v",
+                                in: {
+                                    $cond: {
+                                        if: { $and: [{ $not: ["$$v.salePrice"] }, { $gt: ["$$v.price", 0] }] },
+                                        then: null, // Không giảm giá thì không có oldPrice đại diện
+                                        else: "$$v.price"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]);
+
+        // Đảm bảo domain/host ảnh chính xác bằng cách duyệt qua kết quả và format nếu cần
+        const formattedProducts = products.map(product => {
+            let thumbUrl = product.thumbnail || '/placeholder-product.png';
+            if (product.thumbnail && !product.thumbnail.startsWith('http')) {
+                thumbUrl = `${process.env.BASE_URL || 'http://localhost:5000'}${product.thumbnail}`;
+            }
+            return {
+                ...product,
+                thumbnail: thumbUrl,
+                type: 'product'
+            };
+        });
+
+        return res.status(200).json({ success: true, data: formattedProducts });
+    } catch (error) {
+        next(error);
+    }
+};
 // Lấy sản phẩm theo danh mục (bao gồm cả danh mục con)
 export const getProductsByCategory = async (req, res) => {
     try {

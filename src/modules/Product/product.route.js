@@ -8,6 +8,7 @@ import {
     getTradeInProducts,
     getRelatedProducts,
     getProductBySKU,
+    searchProducts
 } from '#product/product.controller.js';
 import {
     createProduct,
@@ -19,68 +20,64 @@ import {
     deleteImage,
     reorderImages
 } from '#product/product.admin.controller.js';
-import { protect, adminRole } from '#middlewares/auth.middleware.js';
+
+// Khởi tạo thêm middleware staffRole từ file auth.middleware
+import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
 import upload from '#middlewares/upload.middleware.js';
 
-// --- CẤU HÌNH MIDDLEWARE ---
-const adminAuth = [protect, adminRole]; // Middleware xác thực Admin
+// --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN ---
+const adminAuth = [protect, adminRole];
+// Tổ hợp quyền vận hành: Cho phép cả Nhân viên (Staff) và Admin truy cập
+const staffAuth = [protect, (req, res, next) => {
+    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Staff')) {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
+}];
 
 // ==========================================
 // 1. PUBLIC ROUTES (Dành cho khách hàng)
 // ==========================================
 
-// Lấy danh sách sản phẩm (có thể kèm filter, search, pagination)
 router.get('/', getAllProducts);
-
-// Các chương trình khuyến mãi đặc thù Di Động Việt
+router.get('/search', searchProducts);
 router.get('/trade-in', getTradeInProducts);
-
-// Lấy theo danh mục hoặc sản phẩm liên quan
 router.get('/category/:categorySlug', getProductsByCategory);
 router.get('/:id/related', getRelatedProducts);
-
-// Tìm kiếm theo SKU (Khách cũng có thể check cấu hình qua SKU)
 router.get('/sku/:sku', getProductBySKU);
-
-// Lấy danh sách sản phẩm sắp hết hàng (dành cho Admin theo dõi, nhưng cũng có thể mở cho khách để họ biết sản phẩm nào sắp hết)
-router.get('/low-stock', adminAuth, getLowStockProducts);
-
-// Chi tiết sản phẩm (Hỗ trợ cả ID và Slug)
 router.get('/:id', getProductByIdAndSlug);
 
 
 // ==========================================
-// 2. ADMIN ROUTES (Yêu cầu quyền Quản trị viên)
+// 2. STAFF & ADMIN ROUTES (Vận hành & Quản lý sản phẩm)
 // ==========================================
 
-router.use(protect, adminRole);
-
+// Cấu hình upload đa trường dữ liệu cho hình ảnh sản phẩm
 const productUpload = upload.fields([
-    {
-        name: 'images',
-        maxCount: 6
-    },
-    {
-        name: 'variantImages',
-        maxCount: 20
-    }
+    { name: 'images', maxCount: 6 },
+    { name: 'variantImages', maxCount: 20 }
 ]);
 
+// Chuyển sang quyền staffAuth: Cho phép nhân viên kiểm tra kho để kịp báo nhập hàng
+router.get('/low-stock', staffAuth, getLowStockProducts);
+
+// Các tác vụ thêm/sửa thông tin sản phẩm (Nhân viên thao tác hàng ngày)
 router.route('/')
-    .post(productUpload, createProduct);
+    .post(staffAuth, productUpload, createProduct);
 
 router.route('/:id')
-    .put(productUpload, updateProduct)
-    .delete(deleteProduct);
+    .put(staffAuth, productUpload, updateProduct)
+    .delete(adminAuth, deleteProduct); // Chỉ có Admin mới được phép xóa hẳn sản phẩm
 
+// Các tác vụ cập nhật, quản lý media sản phẩm giao cho Nhân viên
 router.route('/:id/images/:imageId')
-    .put(upload.single('image'), replaceImage)
-    .delete(deleteImage);
+    .put(staffAuth, upload.single('image'), replaceImage)
+    .delete(staffAuth, deleteImage);
 
 router.route('/:id/images/reorder')
-    .put(reorderImages);
+    .put(staffAuth, reorderImages);
 
 router.route('/:id/images/:imageId/thumbnail')
-    .put(setThumbnail);
+    .put(staffAuth, setThumbnail);
 
 export default router;

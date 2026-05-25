@@ -4,6 +4,76 @@ import Product from '#product/Product.model.js';
 import Account from '#account/Account.model.js';
 import Cart from '#cart/Cart.model.js';
 
+export const searchOrders = async (req, res, next) => {
+    try {
+        const { q } = req.query;
+
+        // Nếu không có từ khóa, trả về mảng rỗng để FE đóng dropdown preview nhanh
+        if (!q || !q.trim()) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        const searchKey = q.trim();
+        let queryCondition = {};
+
+        // 1. KIỂM TRA ĐỊNH DẠNG TỪ KHÓA TÌM KIẾM
+        // Kiểm tra xem chuỗi nhập vào có phải là Số điện thoại không (toàn số, từ 9-11 ký tự)
+        const isPhoneNumber = /^\d+$/.test(searchKey) && searchKey.length >= 9 && searchKey.length <= 11;
+
+        if (isPhoneNumber) {
+            // Khớp chính xác số điện thoại nằm trong object shippingAddress
+            queryCondition = { 'shippingAddress.phone': searchKey };
+        } else {
+            // Nếu không phải số điện thoại, kiểm tra xem có phải chuỗi ObjectId hợp lệ của MongoDB không
+            const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(searchKey);
+
+            if (isValidObjectId) {
+                // Khách hàng hoặc Admin paste thẳng mã đơn hàng (_id) dạng ObjectId
+                queryCondition = { _id: searchKey };
+            } else {
+                // Nếu là chuỗi ký tự thông thường, tìm kiếm gần đúng (Regex) theo _id 
+                // (MongoDB cho phép cast _id thành chuỗi khi dùng Regex aggregate nhưng tìm find thông thường sẽ lỗi,
+                // vì vậy ở đây ta hỗ trợ tìm gần đúng nếu schema của bạn có trường orderCode hoặc chỉ khớp chính xác _id)
+                return res.status(200).json({ success: true, data: [] });
+            }
+        }
+
+        // 2. TRUY VẤN DATABASE
+        // Lấy ra tối đa 5 đơn hàng mới nhất để tối ưu hiệu năng preview cho Frontend
+        const orders = await Order.find(queryCondition)
+            .sort({ createdAt: -1 })
+            .limit(5);
+
+        // 3. ĐỒNG BỘ ĐẦU RA (FORMAT DATA) VỚI CẤU TRÚC FRONTEND CẦN
+        const formattedOrders = orders.map(order => {
+            // Gom thông tin sản phẩm đầu tiên hoặc tạo chuỗi tóm tắt để hiển thị ở Preview cho đẹp
+            const firstItemName = order.orderItems?.[0]?.name || "Đơn hàng";
+            const itemCount = order.orderItems?.length || 0;
+            const orderSummary = itemCount > 1 ? `${firstItemName} (và ${itemCount - 1} sản phẩm khác)` : firstItemName;
+
+            return {
+                _id: order._id,
+                code: order._id.toString().slice(-6).toUpperCase(), // Tạo mã hiển thị ngắn 6 ký tự cuối từ _id nếu bạn không dùng trường code riêng
+                fullId: order._id, // Giữ lại ID gốc để FE làm router điều hướng
+                customerName: order.shippingAddress?.fullName,
+                totalPrice: order.totalPrice,
+                status: order.orderStatus, // Lấy đúng enum tiếng Việt: 'Đang xử lý', 'Đã xác nhận'...
+                summary: orderSummary,
+                type: 'order' // Tag định danh dữ liệu đơn hàng
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: formattedOrders.length,
+            data: formattedOrders
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
 // XEM TRƯỚC HÓA ĐƠN VÀ LẤY ĐỊA CHỈ TỰ ĐỘNG (Dùng khi vừa vào trang Order)
 export const checkoutPreview = async (req, res) => {
     try {

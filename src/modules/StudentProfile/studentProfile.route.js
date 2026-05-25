@@ -12,6 +12,19 @@ import upload from '#middlewares/upload.middleware.js';
 
 const router = express.Router();
 
+// --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN VẬN HÀNH ---
+// Cho phép cả Nhân viên (Staff) và Admin thực hiện kiểm duyệt
+const staffAuth = [protect, (req, res, next) => {
+    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Staff')) {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: 'Quyền truy cập bị từ chối!' });
+}];
+
+// ==========================================
+// 1. CLIENT ROUTES (Dành cho khách hàng)
+// ==========================================
+
 // Người dùng upload ảnh minh chứng thẻ sinh viên
 router.post('/upload-card', protect, upload.single('studentCardImage'), uploadStudentCard);
 
@@ -21,10 +34,15 @@ router.post('/update', protect, updateStudentProfile);
 // Người dùng lấy thông tin hồ sơ HSSV hiện tại của mình
 router.get('/me', protect, getMyStudentProfile);
 
-// Admin lấy danh sách các hồ sơ đang nằm trong hàng đợi duyệt
-router.get('/admin/pending', protect, adminRole, getPendingHSSV);
 
-// Admin phê duyệt/từ chối một hồ sơ dựa vào ID hồ sơ truyền trên URL
-router.put('/admin/verify/:id', protect, adminRole, verifyHSSVStatus);
+// ==========================================
+// 2. MANAGEMENT ROUTES (Dành cho bộ phận vận hành / Nhân viên kiểm duyệt)
+// ==========================================
+
+// Nhân viên lấy danh sách các hồ sơ đang nằm trong hàng đợi duyệt
+router.get('/management/pending', staffAuth, getPendingHSSV);
+
+// Nhân viên hoặc Admin trực tiếp phê duyệt / từ chối hồ sơ thẻ sinh viên
+router.put('/management/verify/:id', staffAuth, verifyHSSVStatus);
 
 export default router;
