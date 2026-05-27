@@ -3,10 +3,12 @@ const router = express.Router();
 import {
     addOrderItems,
     updateOrderToPaid,
+    getMyOrders,
     getAllOrders,
     searchOrders,
     updateOrderToDelivered,
     cancelOrder,
+    deleteOrder,
     trackOrderPublic,
     checkoutPreview
 } from '#order/order.controller.js';
@@ -23,14 +25,17 @@ import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
 router.post('/', protect, addOrderItems);
 router.post('/preview', protect, checkoutPreview);
 
-// Khách hàng tự thanh toán hoặc tự hủy đơn của chính họ
-router.put('/:id/pay', protect, updateOrderToPaid);
-router.put('/:id/cancel', protect, cancelOrder);
-
 // Tra cứu nhanh (Dùng cho thanh Search tổng và trang theo dõi tiến độ đơn hàng công khai)
 router.get('/search', searchOrders);
 router.get('/track', trackOrderPublic);
 
+// Khách hàng xem tất cả đơn hàng
+router.get('/myorders', protect, getMyOrders);
+
+// Khách hàng tự thanh toán hoặc tự hủy đơn của chính họ
+router.put('/:id/pay', protect, updateOrderToPaid);
+router.put('/:id/cancel', protect, cancelOrder);
+router.delete('/:id', protect, deleteOrder);
 
 // ==========================================
 // 2. MANAGEMENT ROUTES (Bộ phận Vận hành / Nhân viên xử lý đơn)

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Branch from './Branch.model.js';
 import Product from '../Product/Product.model.js';
 

@@ -14,6 +14,7 @@ import {
     createProduct,
     updateProduct,
     deleteProduct,
+    deleteSoftProduct,
     getLowStockProducts,
     setThumbnail,
     replaceImage,
@@ -57,6 +58,7 @@ router.route('/')
 
 router.route('/:id')
     .put(staffRole, productUpload, updateProduct)
+    .patch(staffRole, deleteSoftProduct) // Xóa mềm: Ẩn sản phẩm khỏi trang chủ nhưng vẫn giữ dữ liệu để có thể khôi phục nếu cần
     .delete(adminRole, deleteProduct); // Chỉ có Admin mới được phép xóa hẳn sản phẩm
 
 // Các tác vụ cập nhật, quản lý media sản phẩm giao cho Nhân viên

@@ -288,7 +288,33 @@ export const cancelOrder = async (req, res) => {
     }
 };
 
-// 3. Lấy tất cả đơn hàng (Dành cho Admin)
+// Xóa đơn hàng (Dành cho Admin/Staff dọn dẹp dữ liệu)
+export const deleteOrder = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        }
+
+        await order.deleteOne();
+        res.status(200).json({ success: true, message: 'Đã xóa đơn hàng thành công' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// 3. Lấy danh sách đơn hàng của người dùng đang đăng nhập
+export const getMyOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+        res.status(200).json({ success: true, data: orders });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+// 4. Lấy tất cả đơn hàng (Dành cho Admin)
 export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({}).populate('user', 'id name').sort({ createdAt: -1 });
@@ -340,17 +366,51 @@ export const updateOrderToPaid = async (req, res) => {
 };
 
 // 6. Tra cứu đơn hàng công khai (không cần đăng nhập)
-export const trackOrderPublic = async (req, res) => {
+export const trackOrderPublic = async (req, res, next) => {
     try {
         const { orderId, phone } = req.query;
-        const order = await Order.findById(orderId);
 
-        if (order && order.shippingAddress.phone === phone) {
-            res.status(200).json({ success: true, status: order.orderStatus, isPaid: order.isPaid });
-        } else {
-            res.status(404).json({ message: 'Thông tin tra cứu không chính xác' });
+        // 1. Validate đầu vào cơ bản
+        if (!orderId || !phone) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp đầy đủ Mã đơn hàng và Số điện thoại'
+            });
         }
+
+        // 2. Kiểm tra định dạng ObjectId để tránh crash lỗi 500 của Mongoose
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã đơn hàng không đúng định dạng'
+            });
+        }
+
+        // 3. Tìm kiếm kết hợp (Tối ưu performance bằng cách tìm thẳng trong DB)
+        const order = await Order.findOne({
+            _id: orderId,
+            'shippingAddress.phone': phone.trim()
+        });
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Thông tin tra cứu không chính xác hoặc đơn hàng không tồn tại'
+            });
+        }
+
+        // 4. Trả về thông tin public (Tránh trả về full dữ liệu nhạy cảm)
+        return res.status(200).json({
+            success: true,
+            data: {
+                orderId: order._id,
+                status: order.orderStatus,
+                isPaid: order.isPaid,
+                createdAt: order.createdAt
+            }
+        });
+
     } catch (error) {
-        res.status(500).json({ message: 'ID đơn hàng không hợp lệ' });
+        next(error);
     }
 };

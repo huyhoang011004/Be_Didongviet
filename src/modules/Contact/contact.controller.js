@@ -98,7 +98,27 @@ export const contactController = {
         }
     },
 
-    // 4. XÓA PHIẾU HỖ TRỢ (Admin Only - Dùng khi bị spam mail rác)
+    // 4. XÓA MỀM PHIẾU HỖ TRỢ (Staff/Admin - Chuyển trạng thái sang Đã hủy)
+    softDeleteContact: async (req, res) => {
+        try {
+            const { contactId } = req.params;
+            const contact = await Contact.findByIdAndUpdate(
+                contactId,
+                { status: 'Đã hủy', processedBy: req.user._id },
+                { new: true }
+            );
+
+            if (!contact) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy phiếu yêu cầu' });
+            }
+
+            return res.status(200).json({ success: true, message: 'Đã hủy phiếu hỗ trợ thành công', data: contact });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // 5. XÓA VĨNH VIỄN PHIẾU HỖ TRỢ (Admin Only - Dùng khi bị spam mail rác)
     deleteContact: async (req, res) => {
         try {
             const { contactId } = req.params;

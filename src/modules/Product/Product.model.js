@@ -40,6 +40,7 @@ const productSchema = new mongoose.Schema({
     isUsed: { type: Boolean, default: false },
     discountDMember: { type: Number, default: 1 },
     tradeInBonus: { type: Number, default: 0 }, // Tiền thưởng khi thu cũ đổi mới
+    isActive: { type: Boolean, default: true } // Trạng thái kích hoạt sản phẩm
 
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

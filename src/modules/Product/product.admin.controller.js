@@ -1,5 +1,5 @@
 import * as productService from '#product/product.admin.service.js';
-
+import Product from './Product.model.js';
 export const createProduct = async (req, res) => {
     try {
         const newProduct = await productService.createProductService(req.body, req.files);
@@ -62,6 +62,29 @@ export const deleteProduct = async (req, res) => {
             success: false,
             message: error.message
         });
+    }
+};
+
+export const deleteSoftProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = await Product.findByIdAndUpdate(
+            id,
+            { isActive: false },
+            { new: true }
+        );
+
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
+        }
+
+        return res.json({
+            success: true,
+            message: 'Đã chuyển trạng thái sản phẩm sang ngừng kinh doanh (xóa mềm)',
+            data: product
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 

@@ -14,9 +14,9 @@ export const createProductService = async (bodyData, files) => {
         }
 
         const productImages = files?.images || [];
-        if (productImages.length === 0) {
-            throw new Error('Phải có ít nhất 1 ảnh sản phẩm');
-        }
+        // if (productImages.length === 0) {
+        //     throw new Error('Phải có ít nhất 1 ảnh sản phẩm');
+        // }
         if (productImages.length > 6) {
             throw new Error('Tối đa 6 ảnh sản phẩm');
         }
