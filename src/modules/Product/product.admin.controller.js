@@ -26,6 +26,7 @@ export const createProduct = async (req, res) => {
     }
 };
 
+// Cập nhật tồn kho / Cấu hình ngưỡng cảnh báo
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
@@ -85,27 +86,6 @@ export const deleteSoftProduct = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-export const getLowStockProducts = async (req, res) => {
-    try {
-        const { threshold, page, limit } = req.query;
-        const result = await productService.getLowStockProductsService(threshold, page, limit);
-
-        return res.status(200).json({
-            success: true,
-            message: `Lấy danh sách sản phẩm sắp hết hàng (tồn kho <= ${result.threshold}) thành công`,
-            pagination: result.pagination,
-            data: result.products
-        });
-    } catch (error) {
-        console.error('GET LOW STOCK ERROR:', error?.message || error);
-        return res.status(500).json({
-            success: false,
-            message: 'Đã xảy ra lỗi khi lấy danh sách sản phẩm hết hàng',
-            error: error.message
-        });
     }
 };
 

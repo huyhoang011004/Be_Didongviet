@@ -21,8 +21,8 @@ const productSchema = new mongoose.Schema({
     // CHI TIẾT CÁC PHIÊN BẢN
     variants: [{
         color: { type: String, required: true }, // Ví dụ: Titan Sa Mạc, Đen Huyền Bí
-        ram: { type: String, required: true }, // Ví dụ: 8GB, 12GB
-        rom: { type: String, required: true }, // Ví dụ: 128GB, 256GB, 1TB
+        ram: { type: String }, // Ví dụ: 8GB, 12GB
+        rom: { type: String }, // Ví dụ: 128GB, 256GB, 1TB
         price: { type: Number, required: true }, // Giá gốc của bản này
         salePrice: { type: Number }, // Giá khuyến mãi riêng cho bản này
         inventory: [{

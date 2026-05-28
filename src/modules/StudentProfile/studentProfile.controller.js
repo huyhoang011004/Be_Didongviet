@@ -129,18 +129,6 @@ const verifyHSSVStatus = async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Cần bổ sung Tên trường và MSSV khi phê duyệt thành công!' });
             }
 
-            // A. Kiểm tra trùng lặp CCCD toàn hệ thống
-            if (citizenId) {
-                const duplicateCCCD = await StudentProfile.findOne({
-                    citizenId,
-                    _id: { $ne: profile._id }
-                });
-                if (duplicateCCCD) {
-                    return res.status(400).json({ success: false, message: 'Số CCCD này đã được sử dụng để xác thực cho một tài khoản khác!' });
-                }
-                profile.citizenId = citizenId;
-            }
-
             // B. Kiểm tra trùng lặp combo (Mã số sinh viên + Tên trường)
             const duplicateStudentId = await StudentProfile.findOne({
                 studentIdCard,

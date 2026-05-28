@@ -242,36 +242,3 @@ export const deleteProductService = async (id) => {
     await Product.deleteOne(query);
     return true;
 };
-
-export const getLowStockProductsService = async (thresholdQuery, pageQuery, limitQuery) => {
-    const threshold = parseInt(thresholdQuery) || 5;
-    const page = parseInt(pageQuery) || 1;
-    const limit = parseInt(limitQuery) || 10;
-    const skip = (page - 1) * limit;
-
-    const query = {
-        variants: {
-            $elemMatch: {
-                stock: { $lte: threshold }
-            }
-        }
-    };
-
-    const totalItems = await Product.countDocuments(query);
-    const products = await Product.find(query)
-        .populate('category', 'name slug')
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-    return {
-        products,
-        pagination: {
-            page,
-            limit,
-            totalItems,
-            totalPages: Math.ceil(totalItems / limit)
-        },
-        threshold
-    };
-};

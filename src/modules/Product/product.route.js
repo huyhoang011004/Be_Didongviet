@@ -15,7 +15,6 @@ import {
     updateProduct,
     deleteProduct,
     deleteSoftProduct,
-    getLowStockProducts,
     setThumbnail,
     replaceImage,
     deleteImage,
@@ -48,9 +47,6 @@ const productUpload = upload.fields([
     { name: 'images', maxCount: 6 },
     { name: 'variantImages', maxCount: 20 }
 ]);
-
-// Chuyển sang quyền staffAuth: Cho phép nhân viên kiểm tra kho để kịp báo nhập hàng
-router.get('/low-stock', staffRole, getLowStockProducts);
 
 // Các tác vụ thêm/sửa thông tin sản phẩm (Nhân viên thao tác hàng ngày)
 router.route('/')

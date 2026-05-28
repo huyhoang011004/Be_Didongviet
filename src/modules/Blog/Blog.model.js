@@ -55,7 +55,8 @@ const blogSchema = new mongoose.Schema({
     tags: [String],
     // Tối ưu SEO nâng cao
     metaTitle: { type: String },
-    metaDescription: { type: String }
+    metaDescription: { type: String },
+    isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
 // Tự động tạo slug trước khi lưu

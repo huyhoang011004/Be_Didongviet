@@ -13,6 +13,7 @@ import { notFound, errorHandler } from '#middlewares/error.middleware.js';
 // Routes
 import authRoute from '#auth/auth.route.js';
 import productRoute from '#product/product.route.js';
+import inventoryRoute from '#inventory/inventory.route.js';
 import accountRoute from '#account/account.route.js';
 import orderRoute from '#order/order.route.js';
 import categoryRoute from '#category/category.route.js';
@@ -48,6 +49,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // --- API ENDPOINTS ---
 app.use('/api/v1/auth', authRoute);
 app.use('/api/v1/products', productRoute);
+app.use('/api/v1/inventory', inventoryRoute);
 app.use('/api/v1/accounts', accountRoute);
 app.use('/api/v1/orders', orderRoute);
 app.use('/api/v1/categories', categoryRoute);

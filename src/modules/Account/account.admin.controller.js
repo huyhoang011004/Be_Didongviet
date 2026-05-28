@@ -156,9 +156,49 @@ const updateUserByAdmin = async (req, res) => {
     }
 };
 
+const softDeleteUserByAdmin = async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        const user = await Account.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+
+        if (user.email === 'admin@gmail.com' || user.name === 'Admin') {
+            return res.status(403).json({ success: false, message: 'Không thể xóa tài khoản Admin hệ thống' });
+        }
+
+        const softDeletedUser = await Account.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    isDeleted: true,
+                    deletedAt: new Date()
+                }
+            },
+            { new: true }
+        ).select('-password');
+
+        return res.status(200).json({
+            success: true,
+            message: `Admin đã tạm khóa tài khoản của [${softDeletedUser.name}]. Tài khoản sẽ bị xóa vĩnh viễn sau 60 ngày.`,
+            data: softDeletedUser
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 const deleteUserByAdmin = async (req, res) => {
     try {
         const userId = req.params.id; // Lấy ID cần xóa từ URL params
+
+        const user = await Account.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
+
+        if (user.email === 'admin@gmail.com' || user.name === 'Admin') {
+            return res.status(403).json({ success: false, message: 'Không thể xóa vĩnh viễn tài khoản Admin hệ thống' });
+        }
 
         // Thực hiện xóa cứng (Xóa vĩnh viễn khỏi Collection Accounts)
         const deletedUser = await Account.findByIdAndDelete(userId);
@@ -188,5 +228,6 @@ export {
     getAllUsersForAdmin,
     createUserByAdmin,
     updateUserByAdmin,
+    softDeleteUserByAdmin,
     deleteUserByAdmin
 };

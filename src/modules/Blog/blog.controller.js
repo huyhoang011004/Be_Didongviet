@@ -107,6 +107,25 @@ export const deleteBlog = async (req, res) => {
     }
 };
 
+// 6. ẨN/HIỆN BÀI VIẾT (Toggle isActive)
+export const toggleBlogStatus = async (req, res) => {
+    try {
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Bài viết không tồn tại' });
+
+        blog.isActive = !blog.isActive;
+        await blog.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Đã ${blog.isActive ? 'hiển thị' : 'ẩn'} bài viết thành công`,
+            data: blog
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // 6. LẤY BÀI VIẾT LIÊN QUAN
 export const getRelatedBlogs = async (req, res) => {
     try {

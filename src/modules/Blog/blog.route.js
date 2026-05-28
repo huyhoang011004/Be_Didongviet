@@ -5,6 +5,7 @@ import {
     getBlogBySlug,
     createBlog,
     updateBlog,
+    toggleBlogStatus,
     deleteBlog,
     getRelatedBlogs
 } from '#blog/blog.controller.js';
@@ -19,6 +20,7 @@ router.get('/related', getRelatedBlogs);
 router.post('/', staffRole, createBlog);
 router.route('/:id')
     .put(staffRole, updateBlog)
+    .patch(staffRole, toggleBlogStatus)
     .delete(staffRole, deleteBlog);
 
 export default router;

@@ -68,7 +68,7 @@ export const contactController = {
         }
     },
 
-    // 3. CẬP NHẬT TRẠNG THÁI / GHI CHÚ XỬ LÝ (Admin Only)
+    // 3. CẬP NHẬT TRẠNG THÁI / GHI CHÚ XỬ LÝ (Staff/Admin)
     // Dùng khi nhân viên gọi điện hỗ trợ xong và chuyển trạng thái sang "Đã giải quyết"
     updateContactStatus: async (req, res) => {
         try {
@@ -118,7 +118,7 @@ export const contactController = {
         }
     },
 
-    // 5. XÓA VĨNH VIỄN PHIẾU HỖ TRỢ (Admin Only - Dùng khi bị spam mail rác)
+    // 5. XÓA VĨNH VIỄN PHIẾU HỖ TRỢ (Admin - Dùng khi bị spam mail rác)
     deleteContact: async (req, res) => {
         try {
             const { contactId } = req.params;
