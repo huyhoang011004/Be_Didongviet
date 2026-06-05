@@ -1,11 +1,14 @@
 import mongoose from 'mongoose';
 import Branch from './Branch.model.js';
 import Product from '../Product/Product.model.js';
+import Inventory from '../Inventory/Inventory.model.js';
 
 // Lấy danh sách tất cả chi nhánh
 export const getAllBranches = async (req, res) => {
     try {
-        const branches = await Branch.find({ isActive: true });
+        const { all } = req.query;
+        const filter = all === 'true' ? {} : { isActive: true };
+        const branches = await Branch.find(filter);
         res.status(200).json({ success: true, data: branches });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -28,22 +31,37 @@ export const getBranchInventory = async (req, res) => {
         const { id } = req.params;
 
         // Sử dụng aggregation để tìm các sản phẩm có tồn kho tại chi nhánh này
-        const products = await Product.aggregate([
-            { $unwind: "$variants" },
-            { $unwind: "$variants.inventory" },
+        const products = await Inventory.aggregate([
             {
                 $match: {
-                    "variants.inventory.branch": new mongoose.Types.ObjectId(id),
-                    "variants.inventory.stock": { $gt: 0 }
+                    branch: new mongoose.Types.ObjectId(id),
+                    stock: { $gt: 0 }
                 }
             },
             {
-                $project: {
-                    name: 1,
-                    variant: "$variants",
-                    stock: "$variants.inventory.stock"
+                $lookup: {
+                    from: "products",
+                    localField: "product",
+                    foreignField: "_id",
+                    as: "productDoc"
                 }
-            }
+            },
+            { $unwind: "$productDoc" },
+            {
+                $project: {
+                    name: "$productDoc.name",
+                    _id: "$productDoc._id",
+                    variant: {
+                        $filter: {
+                            input: "$productDoc.variants",
+                            as: "v",
+                            cond: { $eq: ["$$v.sku", "$sku"] }
+                        }
+                    },
+                    stock: "$stock"
+                }
+            },
+            { $unwind: "$variant" }
         ]);
 
         res.status(200).json({ success: true, data: products });

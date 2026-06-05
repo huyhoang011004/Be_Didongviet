@@ -4,6 +4,7 @@ import StudentProfile from '#studentProfile/StudentProfile.model.js';
 import Voucher from '#voucher/Voucher.model.js';
 import Cart from '#cart/Cart.model.js';
 import { sendOTPEmail } from '#utils/emailService.js';
+import { parseAddressString } from '#utils/addressHelper.js';
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const getAllUsersForAdmin = async (req, res) => {
@@ -80,29 +81,27 @@ const createUserByAdmin = async (req, res) => {
         // Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10); // Sử dụng bcrypt để mã hóa mật khẩu với salt rounds là 10
 
-        // Tạo mã OTP ngẫu nhiên gồm 6 chữ số
-        const otpCode = generateOTP();
-        const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // Hết hạn sau 5 phút
-
-        // Lưu user tạm thời vào database (chưa verified)
+        // Lưu user vào database (Admin tạo nên mặc định là đã xác thực)
         const newUser = new Account({
             name,
             email,
             password: hashedPassword,
             phone,
             role,
-            otpCode,
-            otpExpires
+            isVerified: true
         });
 
         await newUser.save();
 
-        // Gửi email chứa mã OTP
-        await sendOTPEmail(email, otpCode);
-
         res.status(201).json({
             success: true,
-            message: 'Đăng ký bước đầu thành công. Vui lòng kiểm tra Gmail để lấy mã OTP xác thực.'
+            message: 'Admin đã tạo tài khoản thành công.',
+            data: {
+                id: newUser._id,
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role
+            }
         });
 
     } catch (error) {
@@ -118,6 +117,11 @@ const updateUserByAdmin = async (req, res) => {
         // Admin có quyền sửa nhiều trường hơn (bao gồm cả email, vai trò, trạng thái...)
         const { name, phone, email, address, role, isDeleted } = req.body;
 
+        let parsedAddress = address;
+        if (typeof address === 'string') {
+            parsedAddress = parseAddressString(address);
+        }
+
         // Tìm và cập nhật thông tin Account theo ID chỉ định
         const updatedUser = await Account.findByIdAndUpdate(
             userId,
@@ -126,7 +130,7 @@ const updateUserByAdmin = async (req, res) => {
                     name,
                     phone,
                     email,
-                    address,
+                    address: parsedAddress,
                     role,
                     isDeleted
                 }
@@ -164,24 +168,29 @@ const softDeleteUserByAdmin = async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
 
         if (user.email === 'admin@gmail.com' || user.name === 'Admin') {
-            return res.status(403).json({ success: false, message: 'Không thể xóa tài khoản Admin hệ thống' });
+            return res.status(403).json({ success: false, message: 'Không thể khóa hoặc mở khóa tài khoản Admin hệ thống' });
         }
 
-        const softDeletedUser = await Account.findByIdAndUpdate(
+        const isLocking = !user.isDeleted;
+
+        const updatedUser = await Account.findByIdAndUpdate(
             userId,
             {
                 $set: {
-                    isDeleted: true,
-                    deletedAt: new Date()
+                    isDeleted: isLocking,
+                    deletedAt: isLocking ? new Date() : null
                 }
             },
             { new: true }
         ).select('-password');
 
+        const actionText = isLocking ? 'tạm khóa' : 'mở khóa';
+        const detailText = isLocking ? ' Tài khoản sẽ bị xóa vĩnh viễn sau 60 ngày.' : '';
+
         return res.status(200).json({
             success: true,
-            message: `Admin đã tạm khóa tài khoản của [${softDeletedUser.name}]. Tài khoản sẽ bị xóa vĩnh viễn sau 60 ngày.`,
-            data: softDeletedUser
+            message: `Admin đã ${actionText} tài khoản của [${updatedUser.name}] thành công.${detailText}`,
+            data: updatedUser
         });
 
     } catch (error) {

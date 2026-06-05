@@ -10,6 +10,7 @@ const orderSchema = new mongoose.Schema({
     // Danh sách sản phẩm trong đơn hàng 
     orderItems: [
         {
+            imei: [{ type: String }],
             name: { type: String, required: true },
             qty: { type: Number, required: true }, // Số lượng đặt mua
             image: { type: String, required: true },
@@ -21,7 +22,6 @@ const orderSchema = new mongoose.Schema({
             },
             variantId: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: 'Product',
                 required: false
             }
         }
@@ -51,20 +51,22 @@ const orderSchema = new mongoose.Schema({
     itemsPrice: { type: Number, required: true, default: 0.0 },
     discountDMember: { type: Number, default: 0.0 }, // Ưu đãi D.Member 
     tradeInBonus: { type: Number, default: 0.0 }, // Trợ giá Thu cũ đổi mới 
+    appliedVoucher: { type: String, default: null },
+    discountVoucher: { type: Number, default: 0.0 },
 
     shippingPrice: { type: Number, required: true, default: 0.0 },
     totalPrice: { type: Number, required: true, default: 0.0 },
 
     // Quản lý trạng thái đơn hàng để hỗ trợ tra cứu 
-    isPaid: { type: Boolean, required: true, default: false },
+    isPaid: { type: Boolean, required: true, default: false }, // Đã thanh toán
     paidAt: { type: Date },
-    isDelivered: { type: Boolean, required: true, default: false },
+    isDelivered: { type: Boolean, required: true, default: false }, // Đã giao hàng
     deliveredAt: { type: Date },
     orderStatus: {
         type: String,
         required: true,
         default: 'Đang xử lý',
-        enum: ['Đang xử lý', 'Đã xác nhận', 'Đang giao hàng', 'Đã hoàn thành', 'Đã hủy']
+        enum: ['Đang xử lý', 'Đã xác nhận', 'Đang giao hàng', 'Đã hoàn thành', 'Đã hủy', 'Trả hàng/Hoàn tiền']
     }
 }, { timestamps: true });
 

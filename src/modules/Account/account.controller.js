@@ -1,5 +1,6 @@
 import Account from '#account/Account.model.js';
 import StudentProfile from '#studentProfile/StudentProfile.model.js';
+import { parseAddressString } from '#utils/addressHelper.js';
 
 const getUserProfile = async (req, res) => {
     try {
@@ -31,6 +32,11 @@ const updateUserProfile = async (req, res) => {
         const userId = req.user._id; // Hoặc dùng req.params.id nếu là Admin sửa hồ sơ
         const { name, phone, address } = req.body;
 
+        let parsedAddress = address;
+        if (typeof address === 'string') {
+            parsedAddress = parseAddressString(address);
+        }
+
         // Tìm và cập nhật thông tin Account, trả về data mới sau khi update (.new = true)
         const updatedUser = await Account.findByIdAndUpdate(
             userId,
@@ -38,7 +44,7 @@ const updateUserProfile = async (req, res) => {
                 $set: {
                     name,
                     phone,
-                    address
+                    address: parsedAddress
                 }
             },
             { new: true, runValidators: true }

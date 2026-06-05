@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
-
+import Product from '#product/Product.model.js';
+import Branch from '#branch/Branch.model.js';
+import Account from '#account/Account.model.js';
 const stockReceiptSchema = new mongoose.Schema({
     receiptNumber: { type: String, unique: true, required: true }, // Mã phiếu: SR-2024-001
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
@@ -17,7 +19,7 @@ const stockReceiptSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Tự động tạo số phiếu
-stockReceiptSchema.pre('save', async function () {
+stockReceiptSchema.pre('validate', async function () {
     if (!this.isNew) return;
 
     const year = new Date().getFullYear();

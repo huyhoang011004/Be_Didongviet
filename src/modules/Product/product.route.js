@@ -1,71 +1,61 @@
-import express from 'express';
+import express from "express";
 const router = express.Router();
 
 import {
-    getAllProducts,
-    getProductsByCategory,
-    getProductByIdAndSlug,
-    getTradeInProducts,
-    getRelatedProducts,
-    getProductBySKU,
-    searchProducts
-} from '#product/product.controller.js';
+  getAllProducts,
+  getTradeInProducts,
+  getRelatedProducts,
+  getProductBySKU,
+  searchProducts,
+  getProductsByCategoryID,
+  getProductById,
+} from "#product/product.controller.js";
 import {
-    createProduct,
-    updateProduct,
-    deleteProduct,
-    deleteSoftProduct,
-    setThumbnail,
-    replaceImage,
-    deleteImage,
-    reorderImages
-} from '#product/product.admin.controller.js';
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  isActiveProduct
+} from "#product/product.admin.controller.js";
 
-// Khởi tạo thêm middleware staffRole từ file auth.middleware
-import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
-import upload from '#middlewares/upload.middleware.js';
+import { adminRole } from "#middlewares/auth.middleware.js";
+import upload from "#middlewares/upload.middleware.js";
+import mongoose from "mongoose";
 
-// ==========================================
-// 1. PUBLIC ROUTES (Dành cho khách hàng)
-// ==========================================
-
-router.get('/', getAllProducts);
-router.get('/search', searchProducts);
-router.get('/trade-in', getTradeInProducts);
-router.get('/category/:categorySlug', getProductsByCategory);
-router.get('/:id/related', getRelatedProducts);
-router.get('/sku/:sku', getProductBySKU);
-router.get('/:id', getProductByIdAndSlug);
-
+const preGenerateProductId = (req, res, next) => {
+  if (req.method === "POST") {
+    req.productId = new mongoose.Types.ObjectId().toString();
+  }
+  next();
+}; // Hàm tạo ID ngẫu nhiên cho sản phẩm trước khi tạo
 
 // ==========================================
-// 2. STAFF & ADMIN ROUTES (Vận hành & Quản lý sản phẩm)
+// 1. PUBLIC ROUTES
 // ==========================================
 
-// Cấu hình upload đa trường dữ liệu cho hình ảnh sản phẩm
+router.get("/", getAllProducts);
+router.get("/search", searchProducts);
+router.get("/trade-in", getTradeInProducts);
+router.get("/category/:categoryID", getProductsByCategoryID);
+router.get("/:id/related", getRelatedProducts);
+router.get("/sku/:sku", getProductBySKU);
+router.get("/:id", getProductById);
+
+// ==========================================
+// 2. ADMIN ROUTES
+// ==========================================
+
 const productUpload = upload.fields([
-    { name: 'images', maxCount: 6 },
-    { name: 'variantImages', maxCount: 20 }
+  { name: "images", maxCount: 6 },
+  { name: "variantImages", maxCount: 20 },
 ]);
 
-// Các tác vụ thêm/sửa thông tin sản phẩm (Nhân viên thao tác hàng ngày)
-router.route('/')
-    .post(staffRole, productUpload, createProduct);
+router
+  .route("/")
+  .post(adminRole, preGenerateProductId, productUpload, createProduct);
 
-router.route('/:id')
-    .put(staffRole, productUpload, updateProduct)
-    .patch(staffRole, deleteSoftProduct) // Xóa mềm: Ẩn sản phẩm khỏi trang chủ nhưng vẫn giữ dữ liệu để có thể khôi phục nếu cần
-    .delete(adminRole, deleteProduct); // Chỉ có Admin mới được phép xóa hẳn sản phẩm
-
-// Các tác vụ cập nhật, quản lý media sản phẩm giao cho Nhân viên
-router.route('/:id/images/:imageId')
-    .put(staffRole, upload.single('image'), replaceImage)
-    .delete(staffRole, deleteImage);
-
-router.route('/:id/images/reorder')
-    .put(staffRole, reorderImages);
-
-router.route('/:id/images/:imageId/thumbnail')
-    .put(staffRole, setThumbnail);
-
+router
+  .route("/:id")
+  .put(adminRole, productUpload, updateProduct)
+  .patch(adminRole, isActiveProduct)
+  .delete(adminRole, deleteProduct);
 export default router;

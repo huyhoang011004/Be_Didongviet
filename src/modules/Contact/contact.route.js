@@ -22,8 +22,8 @@ router.get('/all', staffRole, contactController.getContacts);
 // Nhân viên cập nhật trạng thái liên hệ (Ví dụ: Đã gọi điện, Đã xử lý xong...)
 router.put('/update/:contactId', staffRole, contactController.updateContactStatus);
 
-// Nhân viên có thể hủy phiếu liên hệ (Xóa mềm bằng cách đổi trạng thái)
-router.patch('/soft-delete/:contactId', staffRole, contactController.softDeleteContact);
+// Cả nhân viên và người tạo phiếu (protect) đều có quyền gọi API hủy này (kiểm tra phân quyền ở controller)
+router.patch('/soft-delete/:contactId', protect, contactController.softDeleteContact);
 
 //  Chỉ có Admin tối cao mới có quyền xóa dữ liệu liên hệ/khiếu nại của khách
 router.delete('/delete/:contactId', protect, adminRole, contactController.deleteContact);

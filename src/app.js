@@ -32,7 +32,9 @@ if (process.env.NODE_ENV !== 'test') {
 const app = express();
 
 // --- MIDDLEWARES HỆ THỐNG ---
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Hỗ trợ đọc dữ liệu form phức tạp

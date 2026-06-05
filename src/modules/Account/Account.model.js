@@ -1,86 +1,78 @@
 import mongoose from 'mongoose';
+import addressSchema from '#account/Address.model.js';
 
-const addressSchema = new mongoose.Schema({
-    province: { type: String, required: true },     // Tỉnh / Thành phố
-    district: { type: String, required: true },     // Quận / Huyện
-    ward: { type: String, required: true },         // Phường / Xã
-    streetAddress: { type: String, required: true }, // Số nhà, tên đường, tòa nhà
-    isDefault: { type: Boolean, default: false }    // Đánh dấu địa chỉ mặc định để ưu tiên lấy ra
-});
 
 const accountSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: [true, 'Vui lòng nhập tên'],
-        trim: true
-    },
+   name: {
+      type: String,
+      required: [true, 'Vui lòng nhập tên'],
+      trim: true
+   },
 
-    email: {
-        type: String,
-        required: [true, 'Vui lòng nhập email'],
-        unique: true,
-        lowercase: true
-    },
+   email: {
+      type: String,
+      required: [true, 'Vui lòng nhập email'],
+      unique: true,
+      lowercase: true
+   },
 
-    password: {
-        type: String,
-        required: [true, 'Vui lòng nhập mật khẩu'],
-        minlength: 6
-    },
+   password: {
+      type: String,
+      required: [true, 'Vui lòng nhập mật khẩu'],
+      minlength: 6
+   },
 
-    phone: {
-        type: String,
-        unique: true,
-        sparse: true,
-    },
+   phone: {
+      type: String,
+      unique: true,
+      sparse: true,
+   },
 
-    googleId: {
-        type: String,
-        unique: true,
-        sparse: true,
-    },
+   googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+   },
 
-    address: [addressSchema],
+   address: [addressSchema],
 
-    // Phân quyền người dùng
-    role: {
-        type: String,
-        enum: ['user', 'admin', 'staff'],
-        default: 'user'
-    },
+   role: {
+      type: String,
+      enum: ['user', 'admin', 'staff'],
+      default: 'user'
+   }, // Quyen nguoi dung
 
-    membershipLevel: {
-        type: String,
-        enum: ['Tiêu chuẩn', 'Bạc', 'Vàng', 'Kim cương'],
-        default: 'Tiêu chuẩn'
-    },
+   membershipLevel: {
+      type: String,
+      enum: ['Tiêu chuẩn', 'Bạc', 'Vàng', 'Kim cương'],
+      default: 'Tiêu chuẩn'
+   }, // Mạc định là tiêu chuan
 
-    // Danh sách sản phẩm yêu thích
-    wishlist: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product'
-    }],
+   // Các trường phục vụ xác thực OTP
+   isVerified: { type: Boolean, default: false }, // Mặc định chưa xác thực
+   otpCode: { type: String, default: null },
+   otpExpires: { type: Date, default: null },
 
-    // Lịch sử tra cứu đơn hàng
-    orderHistory: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Order'
-    }],
+   isDeleted: {
+      type: Boolean,
+      default: false
+   }, // Mạc định chưa xóa
+   deletedAt: {
+      type: Date,
+      default: null
+   } //  Ngày xóa
+}, { 
+   timestamps: true,
+   toJSON: { virtuals: true },
+   toObject: { virtuals: true }
+});
 
-    // Các trường phục vụ xác thực OTP
-    isVerified: { type: Boolean, default: false }, // Mặc định chưa xác thực
-    otpCode: { type: String, default: null },
-    otpExpires: { type: Date, default: null },
-
-    isDeleted: {
-        type: Boolean,
-        default: false
-    },
-    deletedAt: {
-        type: Date,
-        default: null
-    }
-}, { timestamps: true });
+// Định nghĩa virtual orderHistory liên kết với Model Order
+accountSchema.virtual('orderHistory', {
+   ref: 'Order',
+   localField: '_id',
+   foreignField: 'user'
+});
 
 // Khi trường `deletedAt` có giá trị, MongoDB sẽ tự động xóa cứng bản ghi này sau 60 ngày.
 accountSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 5184000 });

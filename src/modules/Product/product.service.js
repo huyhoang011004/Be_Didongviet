@@ -1,11 +1,35 @@
 import Product from '#product/Product.model.js';
 import { calculateDiscountedPrice } from '#utils/discountHelper.js';
+import mongoose from 'mongoose';
+import Category from '#category/Category.model.js';
+
+// Helper: Map dữ liệu từ bảng inventories vào variants của sản phẩm để đồng bộ cấu trúc cũ
+export const formatProductWithInventories = (product) => {
+    if (!product) return null;
+    const productObj = product.toObject ? product.toObject() : product;
+    const inventories = productObj.inventories || [];
+    if (Array.isArray(productObj.variants)) {
+        productObj.variants = productObj.variants.map(variant => {
+            const variantInventories = inventories.filter(inv => inv.sku === variant.sku);
+            return {
+                ...variant,
+                inventory: variantInventories.map(inv => ({
+                    branch: inv.branch?._id || inv.branch,
+                    stock: inv.stock || 0
+                }))
+            };
+        });
+    }
+    return productObj;
+};
 
 // Helper: Chuẩn hóa dữ liệu hiển thị sản phẩm
 export const formatProductResponse = (product, userInfo = null) => {
     if (!product) return null;
 
-    const productObj = product.toObject ? product.toObject() : product;
+    const productWithInv = formatProductWithInventories(product);
+    const productObj = productWithInv;
+    
     // Nếu sản phẩm có variants, lấy giá thấp nhất trong variants (ưu tiên salePrice nếu có)
     let basePrice;
     if (Array.isArray(productObj.variants) && productObj.variants.length > 0) {
@@ -33,7 +57,28 @@ export const fetchProducts = async (filters) => {
     const query = {};
 
     if (keyword) query.name = { $regex: keyword, $options: 'i' };
-    if (category) query.category = category;
+    
+    if (category) {
+        let categoryDoc;
+        if (mongoose.Types.ObjectId.isValid(category)) {
+            categoryDoc = await Category.findById(category);
+        } else {
+            categoryDoc = await Category.findOne({ slug: category });
+        }
+
+        if (categoryDoc) {
+            const descendantCategories = await Category.find({
+                $or: [
+                    { _id: categoryDoc._id },
+                    { ancestors: categoryDoc._id }
+                ]
+            });
+            const categoryIds = descendantCategories.map(c => c._id);
+            query.category = { $in: categoryIds };
+        } else {
+            query.category = category;
+        }
+    }
     if (brand) query.brand = brand;
     if (isUsed !== undefined) query.isUsed = isUsed === 'true';
 
@@ -58,28 +103,13 @@ export const fetchProducts = async (filters) => {
         newest: { createdAt: -1 }
     };
 
-    return await Product.find(query).sort(sortOptions[sort] || sortOptions.newest);
+    console.log('fetchProducts final query:', JSON.stringify(query, null, 2));
+    return await Product.find(query).populate('category', 'name slug').populate('inventories').sort(sortOptions[sort] || sortOptions.newest);
 };
 
-// Lấy chi tiết 1 sản phẩm kèm giá cá nhân hóa
-export const fetchProductById = async (productId, userInfo = null) => {
-    const product = await Product.findById(productId);
-    return formatProductResponse(product, userInfo);
-};
 
-// Lấy sản phẩm theo chiến dịch đặc biệt
-export const fetchTradeInProducts = async () => {
-    // 1. Chỉ tìm các sản phẩm có bonus thu cũ đổi mới > 0
-    const query = { tradeInBonus: { $gt: 0 } };
 
-    // 2. Sắp xếp theo mức thưởng cao nhất lên trước
-    const products = await Product.find(query)
-        .sort({ tradeInBonus: -1 })
-        .populate('category', 'name slug'); // Populate thêm category để frontend hiển thị nhãn hiệu
 
-    // 3. Format lại dữ liệu trả về (bao gồm link ảnh đầy đủ)
-    return products.map(p => formatProductResponse(p));
-};
 
 // Lấy sản phẩm liên quan
 export const fetchRelatedProducts = async (productId, limit = 5) => {
@@ -92,10 +122,6 @@ export const fetchRelatedProducts = async (productId, limit = 5) => {
         'variants.price': { $gte: product.priceRange.min * 0.8, $lte: product.priceRange.max * 1.2 } // Lọc sản phẩm có giá trong khoảng ±20% so với sản phẩm gốc
 
     };
-    return await Product.find(query).limit(limit);
+    return await Product.find(query).populate('inventories').limit(limit);
 };
 
-// Lấy sản phẩm theo SKU
-export const getProductBySKU = async (sku) => {
-    return await Product.findOne({ "variants.sku": sku });
-};

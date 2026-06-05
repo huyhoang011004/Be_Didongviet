@@ -41,6 +41,11 @@ const contactSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Account',
         default: null // ID của Admin/Nhân viên tiếp nhận xử lý ca này
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Account',
+        default: null // ID của Account tạo phiếu (nếu có đăng nhập)
     }
 }, { timestamps: true });
 
