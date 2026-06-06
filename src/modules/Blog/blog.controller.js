@@ -4,7 +4,7 @@ import slugify from '#utils/slugify.js';
 // 1. LẤY DANH SÁCH BÀI VIẾT (Công khai cho User / Hoặc có thể mở rộng cho Admin)
 export const getAllBlogs = async (req, res) => {
     try {
-        const { category, tag, keyword, page = 1, limit = 10, showAll } = req.query;
+        const { category, tag, keyword, page = 1, limit = 10, showAll, related } = req.query;
 
         // Mặc định khách hàng vãng lai chỉ xem bài đã xuất bản
         let query = { status: 'Đã xuất bản' };
@@ -16,6 +16,7 @@ export const getAllBlogs = async (req, res) => {
 
         if (category) query.category = category;
         if (tag) query.tags = { $in: [tag] };
+        if (related) query.relatedProducts = related;
         if (keyword) {
             query.$or = [
                 { title: { $regex: keyword, $options: 'i' } },

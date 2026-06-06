@@ -1,5 +1,4 @@
-// models/FlashSale.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const flashSaleSchema = new mongoose.Schema({
     name: { type: String, required: true }, // Ví dụ: "Flash Sale Cuối Tháng 5"
@@ -21,4 +20,4 @@ const flashSaleSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('FlashSale', flashSaleSchema);
+export default mongoose.model('FlashSale', flashSaleSchema);

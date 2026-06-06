@@ -7,7 +7,7 @@ export const getAllCarts = async (req, res) => {
     try {
         const carts = await Cart.find({})
             .populate('user', 'name email phone')
-            .populate('items.product', 'name images category');
+            .populate('items.product', 'name images category slug');
 
         res.status(200).json({ success: true, data: carts });
     } catch (error) {

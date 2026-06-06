@@ -1,6 +1,7 @@
 import Account from '#account/Account.model.js';
 import StudentProfile from '#studentProfile/StudentProfile.model.js';
 import { parseAddressString } from '#utils/addressHelper.js';
+import bcrypt from 'bcryptjs';
 
 const getUserProfile = async (req, res) => {
     try {
@@ -105,4 +106,36 @@ const deleteUserProfile = async (req, res) => {
     }
 };
 
-export { getUserProfile, updateUserProfile, deleteUserProfile };
+const changePassword = async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Vui lòng điền đầy đủ mật khẩu cũ và mật khẩu mới' });
+        }
+
+        // Tìm tài khoản và lấy luôn cả password
+        const user = await Account.findById(req.user._id).select('+password');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+
+        // So sánh mật khẩu cũ
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu cũ không chính xác' });
+        }
+
+        // Băm mật khẩu mới
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        res.status(200).json({ success: true, message: 'Đổi mật khẩu thành công!' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export { getUserProfile, updateUserProfile, deleteUserProfile, changePassword };

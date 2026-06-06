@@ -7,6 +7,11 @@ const orderSchema = new mongoose.Schema({
         ref: 'Account',
         required: true
     },
+    branch: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Branch',
+        required: true
+    },
     // Danh sách sản phẩm trong đơn hàng 
     orderItems: [
         {

@@ -3,6 +3,7 @@ import Order from '#order/Order.model.js';
 import Product from '#product/Product.model.js';
 import Account from '#account/Account.model.js';
 import Cart from '#cart/Cart.model.js';
+import Inventory from '#inventory/Inventory.model.js';
 
 export const searchOrders = async (req, res, next) => {
     try {
@@ -159,12 +160,18 @@ export const addOrderItems = async (req, res) => {
             paymentMethod,
             discountDMember,
             tradeInBonus,
-            shippingPrice
+            shippingPrice,
+            branchId // Nhận thêm chi nhánh đặt hàng
         } = req.body;
 
         if (!orderItems || orderItems.length === 0) {
             await session.abortTransaction();
             return res.status(400).json({ message: 'Đơn hàng trống' });
+        }
+
+        if (!branchId) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: 'Vui lòng chọn chi nhánh nhận hàng!' });
         }
 
         // 1. Kiểm tra ngặt nghèo thông tin nhận hàng
@@ -176,48 +183,57 @@ export const addOrderItems = async (req, res) => {
         let calculatedItemsPrice = 0;
         const finalOrderItems = [];
 
-        // 2. Duyệt qua từng sản phẩm để vừa kiểm tra giá, vừa trừ kho an toàn
+        // 2. Duyệt qua từng sản phẩm để vừa kiểm tra giá, vừa trừ kho an toàn trong Inventory theo chi nhánh
         for (const item of orderItems) {
-            let updatedProduct = null;
-            let variant = null;
+            const product = await Product.findById(item.product);
+            if (!product) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong hệ thống!' });
+            }
 
+            let variant = null;
             if (item.variantId) {
-                updatedProduct = await Product.findOneAndUpdate(
-                    { _id: item.product, 'variants._id': item.variantId, 'variants.stock': { $gte: item.qty } },
-                    { $inc: { 'variants.$.stock': -item.qty } },
-                    { session, new: true }
-                );
-                if (updatedProduct) {
-                    variant = updatedProduct.variants.find(v => String(v._id) === String(item.variantId));
+                variant = product.variants.find(v => String(v._id) === String(item.variantId));
+                if (!variant) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).json({ message: 'Không tìm thấy phiên bản phân loại sản phẩm!' });
                 }
             }
 
-            if (!updatedProduct) {
-                updatedProduct = await Product.findOneAndUpdate(
-                    { _id: item.product, stock: { $gte: item.qty } },
-                    { $inc: { stock: -item.qty } },
-                    { session, new: true }
-                );
-            }
-
-            if (!updatedProduct || (item.variantId && !variant)) {
+            const sku = variant ? variant.sku : product.variants?.[0]?.sku;
+            if (!sku) {
                 await session.abortTransaction();
                 session.endSession();
-                return res.status(400).json({ message: 'Sản phẩm có ID hoặc biến thể không đủ số lượng trong kho, vui lòng kiểm tra lại!' });
+                return res.status(400).json({ message: `Sản phẩm "${product.name}" không có mã phân loại SKU hợp lệ!` });
+            }
+
+            // Trừ tồn kho từ collection Inventory theo sku và branchId
+            const updatedInventory = await Inventory.findOneAndUpdate(
+                { product: item.product, sku: sku, branch: branchId, stock: { $gte: item.qty } },
+                { $inc: { stock: -item.qty } },
+                { session, returnDocument: 'after' }
+            );
+
+            if (!updatedInventory) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ message: `Sản phẩm "${product.name}" có phiên bản hoặc số lượng không đủ trong kho tại chi nhánh đã chọn, vui lòng kiểm tra lại!` });
             }
 
             const price = variant
                 ? (variant.salePrice || variant.price || 0)
-                : (updatedProduct.price || 0);
+                : (product.price || 0);
 
             calculatedItemsPrice += price * item.qty;
 
             finalOrderItems.push({
-                product: updatedProduct._id,
+                product: product._id,
                 variantId: item.variantId || null,
-                name: updatedProduct.name,
+                name: product.name,
                 qty: item.qty,
-                image: variant?.variantImage || updatedProduct.featuredImage || updatedProduct.images?.[0]?.url || '',
+                image: variant?.variantImage || product.featuredImage || product.images?.[0]?.url || '',
                 price
             });
         }
@@ -229,6 +245,7 @@ export const addOrderItems = async (req, res) => {
         // 4. Khởi tạo và tạo đơn hàng mới
         const order = new Order({
             user: req.user._id,
+            branch: branchId, // Lưu chi nhánh đặt hàng
             orderItems: finalOrderItems,
             shippingAddress,
             paymentMethod,
@@ -276,10 +293,20 @@ export const cancelOrder = async (req, res) => {
         order.orderStatus = 'Đã hủy';
         await order.save();
 
-        // HOÀN LẠI TỒN KHO
-        const restoreStockPromises = order.orderItems.map(item =>
-            Product.findByIdAndUpdate(item.product, { $inc: { stock: item.qty } })
-        );
+        // HOÀN LẠI TỒN KHO vào bảng Inventory theo đúng chi nhánh của đơn hàng
+        const restoreStockPromises = order.orderItems.map(async (item) => {
+            const product = await Product.findById(item.product);
+            if (!product) return;
+            const variant = product.variants?.find(v => String(v._id) === String(item.variantId)) || product.variants?.[0];
+            const sku = variant ? variant.sku : null;
+            if (sku && order.branch) {
+                await Inventory.findOneAndUpdate(
+                    { product: item.product, sku: sku, branch: order.branch },
+                    { $inc: { stock: item.qty } },
+                    { upsert: true }
+                );
+            }
+        });
         await Promise.all(restoreStockPromises);
 
         res.status(200).json({ success: true, message: 'Đã hủy đơn hàng và hoàn tồn kho' });

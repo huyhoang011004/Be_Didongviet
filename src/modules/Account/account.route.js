@@ -4,7 +4,8 @@ const router = express.Router();
 import {
     getUserProfile,
     updateUserProfile,
-    deleteUserProfile
+    deleteUserProfile,
+    changePassword
 } from '#account/account.controller.js';
 
 import {
@@ -25,6 +26,9 @@ router.get('/profile', protect, getUserProfile);
 
 // Cập nhật hồ sơ cá nhân
 router.put('/profile', protect, updateUserProfile);
+
+// Đổi mật khẩu
+router.put('/change-password', protect, changePassword);
 
 // Xóa hồ sơ cá nhân
 router.delete('/profile', protect, deleteUserProfile);

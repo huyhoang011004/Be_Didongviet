@@ -6,6 +6,7 @@ import {
     updateCartItem,
     removeFromCart,
     applyVoucher,
+    changeCartItemVariant,
 } from '#cart/cart.controller.js';
 import {
     getAllCarts,
@@ -30,6 +31,9 @@ router.post('/', protect, addToCart);
 
 // Cập nhật số lượng: PUT /api/cart
 router.put('/', protect, updateCartItem);
+
+// Đổi phân loại hàng: PUT /api/cart/change-variant
+router.put('/change-variant', protect, changeCartItemVariant);
 
 // Áp dụng mã giảm giá: POST /api/cart/apply-voucher
 router.post('/apply-voucher', protect, applyVoucher);

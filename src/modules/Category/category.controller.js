@@ -57,6 +57,23 @@ export const getCategoryBySlug = async (req, res) => {
   }
 };
 
+// 3. LẤY CHI TIẾT THEO ID
+export const getCategoryById = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id).populate(
+      "parentCategory",
+    );
+    if (!category) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Danh mục không tồn tại" });
+    }
+    res.status(200).json({ success: true, data: category });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 //  LẤY DANH MỤC CON CỦA "MÁY CŨ GIÁ RẺ"
 export const getUsedCategories = async (req, res) => {
   try {

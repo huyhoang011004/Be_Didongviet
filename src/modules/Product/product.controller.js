@@ -102,6 +102,8 @@ export const getProductsByCategoryID = async (req, res) => {
       const page = parseInt(req.query.page, 10) || 1;
       const limit = parseInt(req.query.limit, 10) || 8;
       const skip = (page - 1) * limit;
+      const brand = req.query.brand;
+      const sort = req.query.sort;
 
       // 1. Tìm danh mục dựa trên ID hoặc slug
       let category;
@@ -127,11 +129,24 @@ export const getProductsByCategoryID = async (req, res) => {
       // 3. Lấy sản phẩm thuộc danh mục hiện tại hoặc các danh mục con
       const query = { category: { $in: categoryIds } };
 
+      // Hỗ trợ lọc theo thương hiệu (brand)
+      if (brand && brand !== 'all') {
+         query.brand = { $regex: new RegExp(`^${brand}$`, 'i') };
+      }
+
+      // Hỗ trợ sắp xếp (sort)
+      let sortQuery = { createdAt: -1 };
+      if (sort === 'price_asc') {
+         sortQuery = { "variants.salePrice": 1, "variants.price": 1 };
+      } else if (sort === 'price_desc') {
+         sortQuery = { "variants.salePrice": -1, "variants.price": -1 };
+      }
+
       const totalProducts = await Product.countDocuments(query);
       const products = await Product.find(query)
          .populate('category', 'name slug')
          .populate('inventories')
-         .sort({ createdAt: -1 })
+         .sort(sortQuery)
          .skip(skip)
          .limit(limit);
 
@@ -152,7 +167,12 @@ export const getProductsByCategoryID = async (req, res) => {
 export const getProductById = async (req, res) => {
    try {
       const { id } = req.params;
-      const product = await Product.findById(id).populate('category', 'name slug').populate('inventories');
+      let product;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+         product = await Product.findById(id).populate('category', 'name slug').populate('inventories');
+      } else {
+         product = await Product.findOne({ slug: id }).populate('category', 'name slug').populate('inventories');
+      }
       if (!product) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
 
       const formattedProduct = formatProductResponse(product, req.user);
@@ -177,7 +197,14 @@ export const getProductBySKU = async (req, res) => {
 // Lấy sản phẩm liên quan
 export const getRelatedProducts = async (req, res) => {
    try {
-      const products = await productService.fetchRelatedProducts(req.params.id);
+      const { limit, isUsed, exclude } = req.query;
+      const excludeIds = exclude ? exclude.split(',') : [];
+      const products = await productService.fetchRelatedProducts(
+         req.params.id,
+         limit ? parseInt(limit) : 10,
+         isUsed,
+         excludeIds
+      );
       res.json({ success: true, data: products });
    } catch (error) {
       res.status(500).json({ success: false, message: error.message });
@@ -210,86 +237,184 @@ export const fetchTradeInProducts = async () => {
 
 export const searchProducts = async (req, res, next) => {
    try {
-      const { q } = req.query;
+      const { q, limit } = req.query;
+      const limitVal = parseInt(limit, 10) || 10;
       if (!q || !q.trim()) return res.status(200).json({ success: true, data: [] });
 
-      const products = await Product.aggregate([
-         // 1. Tìm kiếm thông minh bằng Atlas Search trên các trường mong muốn
-         {
-            $search: {
-               index: "default",
-               text: {
-                  query: q.trim(),
-                  path: ["name", "slug", "brand"],
-                  fuzzy: {
-                     maxEdits: 2,
-                     prefixLength: 1,
-                     maxExpansions: 50
+      let products = [];
+      try {
+         // Thử dùng Atlas Search trước
+         products = await Product.aggregate([
+            {
+               $search: {
+                  index: "default",
+                  text: {
+                     query: q.trim(),
+                     path: ["name", "slug", "brand"],
+                     fuzzy: {
+                        maxEdits: 2,
+                        prefixLength: 1,
+                        maxExpansions: 50
+                     }
                   }
                }
-            }
-         },
-         // 2. Giới hạn 10 kết quả tốt nhất để làm preview gọn nhẹ
-         { $limit: 10 },
-         // 3. Sử dụng $project để định hình và format dữ liệu trả về giống cấu trúc FE cần
-         {
-            $project: {
-               _id: 1,
-               name: 1,
-               slug: 1,
-               // Lấy ảnh có isThumbnail: true hoặc lấy phần tử đầu tiên trong mảng images
-               thumbnail: {
-                  $let: {
-                     vars: {
-                        thumbImg: {
-                           $filter: {
-                              input: "$images",
-                              as: "img",
-                              cond: { $eq: ["$$img.isThumbnail", true] }
+            },
+            { $limit: limitVal },
+            {
+               $project: {
+                  _id: 1,
+                  name: 1,
+                  slug: 1,
+                  thumbnail: {
+                     $let: {
+                        vars: {
+                           thumbImg: {
+                              $filter: {
+                                 input: "$images",
+                                 as: "img",
+                                 cond: { $eq: ["$$img.isThumbnail", true] }
+                              }
                            }
-                        }
-                     },
-                     in: {
-                        $cond: {
-                           if: { $gt: [{ $size: "$$thumbImg" }, 0] },
-                           then: { $arrayElemAt: ["$$thumbImg.url", 0] },
-                           else: { $arrayElemAt: ["$images.url", 0] }
-                        }
-                     }
-                  }
-               },
-               // Tìm giá thấp nhất từ mảng variants để làm giá hiển thị đại diện (priceRange.min)
-               price: {
-                  $min: {
-                     $map: {
-                        input: "$variants",
-                        as: "v",
-                        in: { $ifNull: ["$$v.salePrice", "$$v.price"] }
-                     }
-                  }
-               },
-               // Tìm giá gốc lớn nhất để làm giá cũ (gạch chân) nếu có salePrice
-               oldPrice: {
-                  $max: {
-                     $map: {
-                        input: "$variants",
-                        as: "v",
+                        },
                         in: {
                            $cond: {
-                              if: { $and: [{ $not: ["$$v.salePrice"] }, { $gt: ["$$v.price", 0] }] },
-                              then: null, // Không giảm giá thì không có oldPrice đại diện
-                              else: "$$v.price"
+                              if: { $gt: [{ $size: "$$thumbImg" }, 0] },
+                              then: { $arrayElemAt: ["$$thumbImg.url", 0] },
+                              else: { $arrayElemAt: ["$images.url", 0] }
+                           }
+                        }
+                     }
+                  },
+                  price: {
+                     $min: {
+                        $map: {
+                           input: "$variants",
+                           as: "v",
+                           in: { $ifNull: ["$$v.salePrice", "$$v.price"] }
+                        }
+                     }
+                  },
+                  oldPrice: {
+                     $max: {
+                        $map: {
+                           input: "$variants",
+                           as: "v",
+                           in: {
+                              $cond: {
+                                 if: { $and: [{ $not: ["$$v.salePrice"] }, { $gt: ["$$v.price", 0] }] },
+                                 then: null,
+                                 else: "$$v.price"
+                              }
+                           }
+                        }
+                     }
+                  },
+                  category: 1,
+                  variants: 1,
+                  brand: 1
+               }
+            }
+         ]);
+      } catch (searchError) {
+         console.warn("Atlas Search failed or not supported, falling back to regex search:", searchError.message);
+         // Fallback dùng Regex thông minh
+         const qTrimmed = q.trim();
+         const searchRegex = new RegExp(qTrimmed, 'i');
+         const exactRegex = new RegExp(`^${qTrimmed}$`, 'i');
+         const prefixRegex = new RegExp(`^${qTrimmed}`, 'i');
+
+         products = await Product.aggregate([
+            {
+               $match: {
+                  isActive: true,
+                  $or: [
+                     { name: searchRegex },
+                     { brand: searchRegex },
+                     { slug: searchRegex }
+                  ]
+               }
+            },
+            {
+               $addFields: {
+                  score: {
+                     $cond: {
+                        if: { $regexMatch: { input: "$name", regex: exactRegex } },
+                        then: 10,
+                        else: {
+                           $cond: {
+                              if: { $regexMatch: { input: "$name", regex: prefixRegex } },
+                              then: 5,
+                              else: {
+                                 $cond: {
+                                    if: { $regexMatch: { input: "$brand", regex: exactRegex } },
+                                    then: 3,
+                                    else: 1
+                                 }
+                              }
                            }
                         }
                      }
                   }
-               },
-               category: 1,
-               variants: 1,
-               brand: 1
+               }
+            },
+            { $sort: { score: -1, createdAt: -1 } },
+            { $limit: limitVal },
+            {
+               $project: {
+                  _id: 1,
+                  name: 1,
+                  slug: 1,
+                  thumbnail: {
+                     $let: {
+                        vars: {
+                           thumbImg: {
+                              $filter: {
+                                 input: "$images",
+                                 as: "img",
+                                 cond: { $eq: ["$$img.isThumbnail", true] }
+                              }
+                           }
+                        },
+                        in: {
+                           $cond: {
+                              if: { $gt: [{ $size: "$$thumbImg" }, 0] },
+                              then: { $arrayElemAt: ["$$thumbImg.url", 0] },
+                              else: { $arrayElemAt: ["$images.url", 0] }
+                           }
+                        }
+                     }
+                  },
+                  price: {
+                     $min: {
+                        $map: {
+                           input: "$variants",
+                           as: "v",
+                           in: { $ifNull: ["$$v.salePrice", "$$v.price"] }
+                        }
+                     }
+                  },
+                  oldPrice: {
+                     $max: {
+                        $map: {
+                           input: "$variants",
+                           as: "v",
+                           in: {
+                              $cond: {
+                                 if: { $and: [{ $not: ["$$v.salePrice"] }, { $gt: ["$$v.price", 0] }] },
+                                 then: null,
+                                 else: "$$v.price"
+                              }
+                           }
+                        }
+                     }
+                  },
+                  category: 1,
+                  variants: 1,
+                  brand: 1
+               }
             }
-         }
-      ]);
+         ]);
+      }
 
       // Populate thông tin danh mục cho kết quả aggregate
       const populatedProducts = await Product.populate(products, { path: 'category', select: 'name slug' });

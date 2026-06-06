@@ -101,7 +101,7 @@ const storage = multer.diskStorage({
 // Giữ nguyên fileFilter và cấu trúc export ở bên dưới file của bạn...
 
 const fileFilter = (req, file, cb) => {
-  const allowedFileTypes = /jpeg|jpg|png|webp/;
+  const allowedFileTypes = /jpeg|jpg|png|webp|avif/;
 
   const extension = allowedFileTypes.test(
     path.extname(file.originalname).toLowerCase(),

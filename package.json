@@ -35,7 +35,8 @@
     "#branch/*.js": "./src/modules/Branch/*.js",
     "#contact/*.js": "./src/modules/Contact/*.js",
     "#review/*.js": "./src/modules/Review/*.js",
-    "#inventory/*.js": "./src/modules/Inventory/*.js"
+    "#inventory/*.js": "./src/modules/Inventory/*.js",
+    "#flashSale/*.js": "./src/modules/FlashSale/*.js"
   },
   "dependencies": {
     "bcryptjs": "3.0.3",
