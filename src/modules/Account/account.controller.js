@@ -2,6 +2,8 @@ import Account from '#account/Account.model.js';
 import StudentProfile from '#studentProfile/StudentProfile.model.js';
 import { parseAddressString } from '#utils/addressHelper.js';
 import bcrypt from 'bcryptjs';
+import path from 'path';
+import fs from 'fs';
 
 const getUserProfile = async (req, res) => {
     try {
@@ -139,4 +141,45 @@ const changePassword = async (req, res) => {
     }
 };
 
-export { getUserProfile, updateUserProfile, deleteUserProfile, changePassword };
+const updateAvatar = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn file ảnh' });
+        }
+
+        // Build avatar URL from the uploaded file path
+        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+        // Xóa avatar cũ nếu có
+        const currentUser = await Account.findById(userId);
+        if (currentUser && currentUser.avatar) {
+            const oldAvatarPath = path.join(process.cwd(), currentUser.avatar.replace(/^\//, ''));
+            if (fs.existsSync(oldAvatarPath)) {
+                fs.unlinkSync(oldAvatarPath);
+            }
+        }
+
+        // Cập nhật avatar mới
+        const updatedUser = await Account.findByIdAndUpdate(
+            userId,
+            { $set: { avatar: avatarUrl } },
+            { new: true }
+        ).select('-password');
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Cập nhật ảnh đại diện thành công',
+            data: updatedUser
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export { getUserProfile, updateUserProfile, deleteUserProfile, changePassword, updateAvatar };

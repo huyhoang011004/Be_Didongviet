@@ -6,7 +6,16 @@ import slugify from "#utils/slugify.js";
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     try {
-      // 1. VERIFY HSSV
+      // 1. AVATAR UPLOAD
+      if (file.fieldname === "avatar") {
+        const folder = "uploads/avatars";
+        if (!fs.existsSync(folder)) {
+          fs.mkdirSync(folder, { recursive: true });
+        }
+        return cb(null, folder);
+      }
+
+      // 2. VERIFY HSSV
       if (req.originalUrl.includes("verify-hssv")) {
         const folder = "uploads/verify";
         if (!fs.existsSync(folder)) {
@@ -51,16 +60,25 @@ const storage = multer.diskStorage({
   },
 
   filename: async (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+
+    // Trường hợp upload avatar
+    if (file.fieldname === "avatar") {
+      return cb(
+        null,
+        `avatar-${Date.now()}-${Math.round(Math.random() * 1e4)}${ext}`,
+      );
+    }
+
     // Trường hợp upload ảnh xác minh HSSV không cần đặt tên theo sản phẩm
     if (req.originalUrl.includes("verify-hssv")) {
-      const ext = path.extname(file.originalname);
       return cb(
         null,
         `hssv-${Date.now()}-${Math.round(Math.random() * 1e4)}${ext}`,
       );
     }
 
-    const ext = path.extname(file.originalname).toLowerCase();
+    const extLower = path.extname(file.originalname).toLowerCase();
     const fieldName = file.fieldname; // 'images', 'variantImages' hoặc 'image'
 
     if (fieldName === "images") {

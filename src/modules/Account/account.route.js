@@ -5,7 +5,8 @@ import {
     getUserProfile,
     updateUserProfile,
     deleteUserProfile,
-    changePassword
+    changePassword,
+    updateAvatar
 } from '#account/account.controller.js';
 
 import {
@@ -17,6 +18,7 @@ import {
 } from '#account/account.admin.controller.js';
 
 import { protect, adminRole } from '#middlewares/auth.middleware.js';
+import upload from '#middlewares/upload.middleware.js';
 
 
 // --- ROUTES CÔNG KHAI ---
@@ -26,6 +28,9 @@ router.get('/profile', protect, getUserProfile);
 
 // Cập nhật hồ sơ cá nhân
 router.put('/profile', protect, updateUserProfile);
+
+// Upload avatar
+router.put('/profile/avatar', protect, upload.single('avatar'), updateAvatar);
 
 // Đổi mật khẩu
 router.put('/change-password', protect, changePassword);
