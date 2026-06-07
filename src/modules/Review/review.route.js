@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/product/:productId', reviewController.getFieldsByProduct);
 
 // Các route cần đăng nhập mới thực hiện được
+router.get('/order/:orderId', protect, reviewController.getReviewsByOrder);
 router.post('/product/:productId', protect, reviewController.createReview);
 router.delete('/:reviewId', protect, reviewController.deleteReview);
 

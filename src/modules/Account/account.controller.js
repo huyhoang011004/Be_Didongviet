@@ -31,7 +31,7 @@ const getUserProfile = async (req, res) => {
 const updateUserProfile = async (req, res) => {
     try {
         const userId = req.user._id; // Hoặc dùng req.params.id nếu là Admin sửa hồ sơ
-        const { name, phone, address } = req.body;
+        const { name, phone, address, avatar } = req.body;
 
         let parsedAddress = address;
         if (typeof address === 'string') {
@@ -45,7 +45,8 @@ const updateUserProfile = async (req, res) => {
                 $set: {
                     name,
                     phone,
-                    address: parsedAddress
+                    address: parsedAddress,
+                    avatar
                 }
             },
             { new: true, runValidators: true }

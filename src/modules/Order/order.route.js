@@ -7,10 +7,13 @@ import {
     getAllOrders,
     searchOrders,
     updateOrderToDelivered,
+    updateOrderStatus,
     cancelOrder,
     deleteOrder,
     trackOrderPublic,
-    checkoutPreview
+    checkoutPreview,
+    confirmOrderReceived,
+    requestOrderReturn
 } from '#order/order.controller.js';
 
 import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
@@ -35,6 +38,8 @@ router.get('/myorders', protect, getMyOrders);
 // Khách hàng tự thanh toán hoặc tự hủy đơn của chính họ
 router.put('/:id/pay', protect, updateOrderToPaid);
 router.put('/:id/cancel', protect, cancelOrder);
+router.put('/:id/receive', protect, confirmOrderReceived);
+router.put('/:id/return', protect, requestOrderReturn);
 router.delete('/:id', protect, deleteOrder);
 
 // ==========================================
@@ -44,7 +49,8 @@ router.delete('/:id', protect, deleteOrder);
 // Nhân viên có thể xem danh sách tất cả đơn hàng để chuẩn bị đóng gói
 router.get('/', staffRole, getAllOrders);
 
-// Nhân viên kho/giao vận cập nhật trạng thái đơn hàng sang "Đang giao hàng/Đã giao"
+// Nhân viên kho/giao vận cập nhật trạng thái đơn hàng theo quy trình xử lý
+router.put('/:id/status', staffRole, updateOrderStatus);
 router.put('/:id/deliver', staffRole, updateOrderToDelivered);
 
 export default router;

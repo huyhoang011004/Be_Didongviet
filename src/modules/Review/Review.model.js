@@ -14,6 +14,12 @@ const reviewSchema = new mongoose.Schema({
         ref: 'Account',
         required: true
     },
+    order: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order',
+        required: false,
+        index: true
+    },
     parentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Review',
@@ -37,8 +43,8 @@ const reviewSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Tránh việc một user đánh giá một sản phẩm quá nhiều lần (Chỉ áp dụng cho comment gốc)
-reviewSchema.index({ product: 1, user: 1, parentId: 1 }, { unique: true, partialFilterExpression: { parentId: null } });
+// Tránh việc một user đánh giá một sản phẩm quá nhiều lần trong cùng một đơn hàng
+reviewSchema.index({ order: 1, product: 1, user: 1, parentId: 1 }, { unique: true, partialFilterExpression: { parentId: null } });
 
 // Hàm Static tính toán trung bình số sao và tổng số đánh giá
 reviewSchema.statics.calculateAverageRatings = async function (productId) {

@@ -5,6 +5,17 @@ import Account from '#account/Account.model.js';
 import Cart from '#cart/Cart.model.js';
 import Inventory from '#inventory/Inventory.model.js';
 
+const normalizeOrderStatus = (status) => {
+    const statusMap = {
+        'Đang xử lý': 'Chờ xác nhận',
+        'Đã xác nhận': 'Chờ lấy hàng',
+        'Đang giao hàng': 'Đang giao',
+        'Đã hoàn thành': 'Đã giao'
+    };
+
+    return statusMap[status] || status || 'Chờ xác nhận';
+};
+
 export const searchOrders = async (req, res, next) => {
     try {
         const { q } = req.query;
@@ -58,7 +69,7 @@ export const searchOrders = async (req, res, next) => {
                 fullId: order._id, // Giữ lại ID gốc để FE làm router điều hướng
                 customerName: order.shippingAddress?.fullName,
                 totalPrice: order.totalPrice,
-                status: order.orderStatus, // Lấy đúng enum tiếng Việt: 'Đang xử lý', 'Đã xác nhận'...
+                status: order.orderStatus,
                 summary: orderSummary,
                 type: 'order' // Tag định danh dữ liệu đơn hàng
             };
@@ -130,7 +141,10 @@ export const checkoutPreview = async (req, res) => {
                 name: product.name,
                 qty: item.qty,
                 image: variant?.variantImage || product.featuredImage || product.images?.[0]?.url || '',
-                price
+                price,
+                selectedColor: variant?.color || '',
+                selectedStorage: variant?.ram && variant?.rom ? `${variant.ram}/${variant.rom}` : (variant?.storage || ''),
+                sku: variant?.sku || ''
             });
         }
 
@@ -234,7 +248,10 @@ export const addOrderItems = async (req, res) => {
                 name: product.name,
                 qty: item.qty,
                 image: variant?.variantImage || product.featuredImage || product.images?.[0]?.url || '',
-                price
+                price,
+                selectedColor: variant?.color || '',
+                selectedStorage: variant?.ram && variant?.rom ? `${variant.ram}/${variant.rom}` : (variant?.storage || ''),
+                sku
             });
         }
 
@@ -285,8 +302,8 @@ export const cancelOrder = async (req, res) => {
         const order = await Order.findById(req.params.id);
         if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
 
-        // Chỉ được hủy khi đơn hàng "Đang xử lý"
-        if (order.orderStatus !== 'Đang xử lý') {
+        // Chỉ được hủy khi đơn hàng còn chờ xác nhận
+        if (normalizeOrderStatus(order.orderStatus) !== 'Chờ xác nhận') {
             return res.status(400).json({ message: 'Không thể hủy đơn hàng đã xác nhận hoặc đang giao' });
         }
 
@@ -333,7 +350,9 @@ export const deleteOrder = async (req, res) => {
 // 3. Lấy danh sách đơn hàng của người dùng đang đăng nhập
 export const getMyOrders = async (req, res) => {
     try {
-        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+        const orders = await Order.find({ user: req.user._id })
+            .populate('orderItems.product', 'variants')
+            .sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: orders });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -344,7 +363,10 @@ export const getMyOrders = async (req, res) => {
 // 4. Lấy tất cả đơn hàng (Dành cho Admin)
 export const getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find({}).populate('user', 'id name').sort({ createdAt: -1 });
+        const orders = await Order.find({})
+            .populate('user', 'id name')
+            .populate('orderItems.product', 'variants')
+            .sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: orders });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -358,7 +380,11 @@ export const updateOrderToDelivered = async (req, res) => {
         if (order) {
             order.isDelivered = true;
             order.deliveredAt = Date.now();
-            order.orderStatus = 'Đã hoàn thành';
+            order.orderStatus = 'Đã giao';
+            if (order.paymentMethod === 'COD') {
+                order.isPaid = true;
+                order.paidAt = order.paidAt || Date.now();
+            }
             const updatedOrder = await order.save();
             res.status(200).json({ success: true, data: updatedOrder });
         } else {
@@ -439,5 +465,94 @@ export const trackOrderPublic = async (req, res, next) => {
 
     } catch (error) {
         next(error);
+    }
+};
+
+export const updateOrderStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+        const allowedStatuses = ['Chờ lấy hàng', 'Đang giao', 'Đã giao'];
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Trạng thái đơn hàng không hợp lệ' });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Đơn hàng không tồn tại' });
+        }
+
+        const allowedTransitions = {
+            'Chờ xác nhận': ['Chờ lấy hàng'],
+            'Chờ lấy hàng': ['Đang giao'],
+            'Đang giao': ['Đã giao']
+        };
+
+        const currentStatus = normalizeOrderStatus(order.orderStatus);
+
+        if (!allowedTransitions[currentStatus]?.includes(status)) {
+            return res.status(400).json({ message: 'Không thể chuyển trạng thái đơn hàng theo bước này' });
+        }
+
+        order.orderStatus = status;
+        if (status === 'Đã giao') {
+            order.isDelivered = true;
+            order.deliveredAt = Date.now();
+            if (order.paymentMethod === 'COD') {
+                order.isPaid = true;
+                order.paidAt = order.paidAt || Date.now();
+            }
+        }
+
+        const updatedOrder = await order.save();
+        res.status(200).json({ success: true, data: updatedOrder });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const confirmOrderReceived = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        
+        if (order.orderStatus !== 'Đã giao') {
+            return res.status(400).json({ message: 'Đơn hàng chưa ở trạng thái Đã giao' });
+        }
+        
+        order.isReceived = true;
+        order.receivedAt = Date.now();
+        const updatedOrder = await order.save();
+        res.status(200).json({ success: true, data: updatedOrder });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const requestOrderReturn = async (req, res) => {
+    try {
+        const { reason, images, videos } = req.body;
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        
+        if (order.orderStatus !== 'Đã giao') {
+            return res.status(400).json({ message: 'Chỉ có thể trả hàng cho đơn hàng đã giao thành công' });
+        }
+        
+        const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+        if (order.deliveredAt && (Date.now() - new Date(order.deliveredAt).getTime() > sevenDaysInMs)) {
+            return res.status(400).json({ message: 'Đã quá thời hạn 7 ngày kể từ khi nhận hàng để yêu cầu trả hàng' });
+        }
+
+        order.orderStatus = 'Trả hàng/Hoàn tiền';
+        order.returnReason = reason || '';
+        order.returnImages = images || [];
+        order.returnVideos = videos || [];
+        order.returnStatus = 'pending';
+        order.returnCode = 'RT' + Math.floor(100000 + Math.random() * 900000);
+
+        const updatedOrder = await order.save();
+        res.status(200).json({ success: true, message: 'Gửi yêu cầu trả hàng thành công', data: updatedOrder });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

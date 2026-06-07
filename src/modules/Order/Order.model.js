@@ -28,7 +28,10 @@ const orderSchema = new mongoose.Schema({
             variantId: {
                 type: mongoose.Schema.Types.ObjectId,
                 required: false
-            }
+            },
+            selectedColor: { type: String, default: '' },
+            selectedStorage: { type: String, default: '' },
+            sku: { type: String, default: '' }
         }
     ],
     // Thông tin nhận hàng của khách hàng 
@@ -70,9 +73,16 @@ const orderSchema = new mongoose.Schema({
     orderStatus: {
         type: String,
         required: true,
-        default: 'Đang xử lý',
-        enum: ['Đang xử lý', 'Đã xác nhận', 'Đang giao hàng', 'Đã hoàn thành', 'Đã hủy', 'Trả hàng/Hoàn tiền']
-    }
+        default: 'Chờ xác nhận',
+        enum: ['Chờ xác nhận', 'Chờ lấy hàng', 'Đang giao', 'Đã giao', 'Đã hủy', 'Trả hàng/Hoàn tiền']
+    },
+    returnReason: { type: String, default: '' },
+    returnImages: [{ type: String }],
+    returnVideos: [{ type: String }],
+    returnCode: { type: String, default: '' },
+    returnStatus: { type: String, default: 'none', enum: ['none', 'pending', 'approved', 'rejected'] },
+    isReceived: { type: Boolean, default: false },
+    receivedAt: { type: Date }
 }, { timestamps: true });
 
 export default mongoose.model('Order', orderSchema);

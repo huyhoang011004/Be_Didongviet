@@ -1,12 +1,14 @@
 import Review from './Review.model.js';
 import Product from '#product/Product.model.js';
+import Order from '#order/Order.model.js';
+
 export const reviewController = {
-    // 1. TẠO MỚI REVIEW / REPLY
+    // 1. TẠO MỚI HOẶC SỬA REVIEW / REPLY
     createReview: async (req, res) => {
         try {
             const { productId } = req.params;
-            const { rating, content, images, parentId } = req.body;
-            const userId = req.user._id; // Giả định bạn đã có middleware Auth lưu thông tin user vào req.user
+            const { rating, content, images, parentId, orderId } = req.body;
+            const userId = req.user._id;
 
             // Kiểm tra xem sản phẩm có tồn tại không
             const product = await Product.findById(productId);
@@ -20,12 +22,50 @@ export const reviewController = {
                 if (!parentReview) {
                     return res.status(404).json({ success: false, message: 'Bình luận gốc không tồn tại' });
                 }
+            } else {
+                // Đánh giá gốc bắt buộc phải liên kết với đơn hàng
+                if (!orderId) {
+                    return res.status(400).json({ success: false, message: 'Yêu cầu mã đơn hàng để gửi đánh giá' });
+                }
+                const order = await Order.findById(orderId);
+                if (!order) {
+                    return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng tương ứng' });
+                }
+                if (order.orderStatus !== 'Đã giao') {
+                    return res.status(400).json({ success: false, message: 'Đơn hàng chưa ở trạng thái Đã giao' });
+                }
+
+                // Kiểm tra giới hạn 30 ngày kể từ lúc giao hàng thành công
+                const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+                const isAfter30Days = order.deliveredAt
+                    ? Date.now() - new Date(order.deliveredAt).getTime() > thirtyDays
+                    : false;
+
+                if (isAfter30Days) {
+                    return res.status(400).json({ success: false, message: 'Đã quá thời hạn 30 ngày kể từ lúc nhận hàng, không thể viết hoặc sửa đánh giá' });
+                }
+
+                // Sửa đánh giá: Nếu đã tồn tại đánh giá cho sản phẩm dưới đơn hàng này, cập nhật đánh giá cũ
+                const existingReview = await Review.findOne({ order: orderId, product: productId, user: userId, parentId: null });
+                if (existingReview) {
+                    existingReview.rating = rating;
+                    existingReview.content = content;
+                    existingReview.images = images || [];
+                    await existingReview.save();
+                    
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Sửa đánh giá sản phẩm thành công',
+                        data: existingReview
+                    });
+                }
             }
 
             const newReview = await Review.create({
                 product: productId,
                 user: userId,
-                rating: parentId ? undefined : rating, // Reply thì không cần lưu số sao
+                order: parentId ? undefined : orderId,
+                rating: parentId ? undefined : rating,
                 content,
                 images,
                 parentId: parentId || null
@@ -37,9 +77,9 @@ export const reviewController = {
                 data: newReview
             });
         } catch (error) {
-            // Xử lý lỗi trùng lặp do index unique (1 user đánh giá 1 sản phẩm nhiều lần)
+            // Xử lý lỗi trùng lặp
             if (error.code === 11000) {
-                return res.status(400).json({ success: false, message: 'Bạn đã đánh giá sản phẩm này rồi' });
+                return res.status(400).json({ success: false, message: 'Bạn đã đánh giá sản phẩm này cho đơn hàng này rồi' });
             }
             return res.status(500).json({ success: false, message: error.message });
         }
@@ -116,6 +156,18 @@ export const reviewController = {
             }
 
             return res.status(200).json({ success: true, message: 'Xóa bình luận thành công' });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // 4. LẤY ĐÁNH GIÁ CỦA MỘT ĐƠN HÀNG (Dành cho việc hiển thị / chỉnh sửa trên FE)
+    getReviewsByOrder: async (req, res) => {
+        try {
+            const { orderId } = req.params;
+            const userId = req.user._id;
+            const reviews = await Review.find({ order: orderId, user: userId, parentId: null });
+            return res.status(200).json({ success: true, data: reviews });
         } catch (error) {
             return res.status(500).json({ success: false, message: error.message });
         }
