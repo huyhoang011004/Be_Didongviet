@@ -36,7 +36,8 @@ const reviewSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
-    images: [{ type: String }], // Mảng chứa URL ảnh thực tế do khách chụp
+    images: [{ type: String }], // Mảng chứa URL ảnh thực tế do khách chụp (tối đa 6)
+    video: { type: String, default: null }, // URL video đánh giá (tối đa 1, tối đa 1 phút, 720p)
     isApproved: {
         type: Boolean,
         default: true // Tự động duyệt hoặc chuyển thành false nếu muốn Admin duyệt trước khi hiển thị

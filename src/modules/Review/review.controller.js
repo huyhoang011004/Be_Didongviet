@@ -1,13 +1,79 @@
 import Review from './Review.model.js';
 import Product from '#product/Product.model.js';
 import Order from '#order/Order.model.js';
+import path from 'path';
+import fs from 'fs';
+import { compressImage, compressVideo } from '#utils/compressMedia.js';
 
 export const reviewController = {
     // 1. TẠO MỚI HOẶC SỬA REVIEW / REPLY
     createReview: async (req, res) => {
         try {
             const { productId } = req.params;
-            const { rating, content, images, parentId, orderId } = req.body;
+            const { rating, content, parentId, orderId } = req.body;
+
+            // Parse images và video từ JSON body (nếu gửi qua JSON) hoặc từ file upload
+            let images = [];
+            let videoUrl = null;
+
+            // Xử lý ảnh upload (multipart)
+            if (req.files?.reviewImages) {
+                const imageFiles = Array.isArray(req.files.reviewImages)
+                    ? req.files.reviewImages
+                    : [req.files.reviewImages];
+
+                if (imageFiles.length > 6) {
+                    return res.status(400).json({ success: false, message: 'Tối đa 6 ảnh cho mỗi đánh giá' });
+                }
+
+                // Nén ảnh xuống 1080p và tối đa 2MB
+                const compressedPaths = await Promise.all(
+                    imageFiles.map(async (file) => {
+                        const ext = path.extname(file.originalname).toLowerCase();
+                        const outputFilename = file.filename.replace(ext, '.jpg');
+                        const outputPath = path.join(file.destination, outputFilename);
+                        try {
+                            await compressImage(file.path, outputPath, { maxWidth: 1080, maxSizeMB: 2 });
+                            // Xóa file gốc nếu tên khác output
+                            if (file.path !== outputPath && fs.existsSync(file.path)) {
+                                fs.unlinkSync(file.path);
+                            }
+                            return `/${outputPath.replace(/\\/g, '/')}`;
+                        } catch (err) {
+                            console.error('Error compressing review image:', err);
+                            return `/${file.path.replace(/\\/g, '/')}`;
+                        }
+                    })
+                );
+                images = compressedPaths;
+            } else if (req.body.images) {
+                // Nhận từ JSON body
+                images = Array.isArray(req.body.images) ? req.body.images : JSON.parse(req.body.images || '[]');
+            }
+
+            // Xử lý video upload (multipart)
+            if (req.files?.reviewVideo) {
+                const videoFile = Array.isArray(req.files.reviewVideo)
+                    ? req.files.reviewVideo[0]
+                    : req.files.reviewVideo;
+
+                const ext = path.extname(videoFile.originalname).toLowerCase();
+                const outputFilename = videoFile.filename.replace(ext, '.mp4');
+                const outputPath = path.join(videoFile.destination, outputFilename);
+
+                try {
+                    await compressVideo(videoFile.path, outputPath);
+                    // Xóa file gốc nếu tên khác output
+                    if (videoFile.path !== outputPath && fs.existsSync(videoFile.path)) {
+                        fs.unlinkSync(videoFile.path);
+                    }
+                    videoUrl = `/${outputPath.replace(/\\/g, '/')}`;
+                } catch (err) {
+                    console.error('Error compressing review video:', err);
+                    videoUrl = `/${videoFile.path.replace(/\\/g, '/')}`;
+                }
+            }
+
             const userId = req.user._id;
 
             // Kiểm tra xem sản phẩm có tồn tại không
@@ -50,9 +116,12 @@ export const reviewController = {
                 if (existingReview) {
                     existingReview.rating = rating;
                     existingReview.content = content;
-                    existingReview.images = images || [];
+                    existingReview.images = images.length > 0 ? images : existingReview.images;
+                    if (videoUrl !== null) {
+                        existingReview.video = videoUrl;
+                    }
                     await existingReview.save();
-                    
+
                     return res.status(200).json({
                         success: true,
                         message: 'Sửa đánh giá sản phẩm thành công',
@@ -68,6 +137,7 @@ export const reviewController = {
                 rating: parentId ? undefined : rating,
                 content,
                 images,
+                video: videoUrl,
                 parentId: parentId || null
             });
 

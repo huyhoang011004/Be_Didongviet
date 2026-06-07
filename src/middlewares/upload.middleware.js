@@ -24,6 +24,15 @@ const storage = multer.diskStorage({
         return cb(null, folder);
       }
 
+      // 3. REVIEW UPLOAD (ảnh + video đánh giá)
+      if (req.originalUrl.includes("/reviews/")) {
+        const folder = "uploads/reviews";
+        if (!fs.existsSync(folder)) {
+          fs.mkdirSync(folder, { recursive: true });
+        }
+        return cb(null, folder);
+      }
+
       const productId = req.params.id || req.productId;
       if (!productId) {
         return cb(new Error("Thiếu ID sản phẩm cho thư mục upload"));
@@ -78,6 +87,15 @@ const storage = multer.diskStorage({
       );
     }
 
+    // Trường hợp upload ảnh/video review
+    if (req.originalUrl.includes("/reviews/")) {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+      if (file.fieldname === "reviewVideo") {
+        return cb(null, `review-video-${uniqueSuffix}${ext}`);
+      }
+      return cb(null, `review-img-${uniqueSuffix}${ext}`);
+    }
+
     const extLower = path.extname(file.originalname).toLowerCase();
     const fieldName = file.fieldname; // 'images', 'variantImages' hoặc 'image'
 
@@ -116,9 +134,34 @@ const storage = multer.diskStorage({
   },
 });
 
-// Giữ nguyên fileFilter và cấu trúc export ở bên dưới file của bạn...
-
 const fileFilter = (req, file, cb) => {
+  // Cho phép video với fieldname reviewVideo
+  if (file.fieldname === "reviewVideo") {
+    const allowedVideoTypes = /mp4|mov|avi|webm|mkv/;
+    const allowedVideoMimes = /video\/(mp4|quicktime|x-msvideo|webm|x-matroska)/;
+    const extension = allowedVideoTypes.test(
+      path.extname(file.originalname).toLowerCase().replace(".", ""),
+    );
+    const mimetype = allowedVideoMimes.test(file.mimetype);
+    if (extension || mimetype) {
+      return cb(null, true);
+    }
+    return cb(new Error("Chỉ chấp nhận định dạng video (mp4, mov, avi, webm)"));
+  }
+
+  // Cho phép ảnh với fieldname reviewImages
+  if (file.fieldname === "reviewImages") {
+    const allowedImageTypes = /jpeg|jpg|png|webp|avif|heic/;
+    const extension = allowedImageTypes.test(
+      path.extname(file.originalname).toLowerCase().replace(".", ""),
+    );
+    const mimetype = /image\/(jpeg|jpg|png|webp|avif|heic)/.test(file.mimetype);
+    if (extension || mimetype) {
+      return cb(null, true);
+    }
+    return cb(new Error("Chỉ chấp nhận định dạng ảnh"));
+  }
+
   const allowedFileTypes = /jpeg|jpg|png|webp|avif/;
 
   const extension = allowedFileTypes.test(
@@ -137,9 +180,29 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 200 * 1024 * 1024, // 200MB (video review trước khi nén)
   },
   fileFilter,
+});
+
+// Upload riêng cho product với giới hạn 5MB
+export const uploadProduct = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedFileTypes = /jpeg|jpg|png|webp|avif/;
+    const extension = allowedFileTypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    const mimetype = allowedFileTypes.test(file.mimetype);
+    if (extension && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error("Chỉ chấp nhận định dạng ảnh"));
+    }
+  },
 });
 
 export default upload;
