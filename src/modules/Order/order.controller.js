@@ -4,6 +4,9 @@ import Product from '#product/Product.model.js';
 import Account from '#account/Account.model.js';
 import Cart from '#cart/Cart.model.js';
 import Inventory from '#inventory/Inventory.model.js';
+import fs from 'fs';
+import path from 'path';
+import { compressImage, compressVideo } from '#utils/compressMedia.js';
 
 const normalizeOrderStatus = (status) => {
     const statusMap = {
@@ -514,11 +517,11 @@ export const confirmOrderReceived = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
         if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
-        
+
         if (order.orderStatus !== 'Đã giao') {
             return res.status(400).json({ message: 'Đơn hàng chưa ở trạng thái Đã giao' });
         }
-        
+
         order.isReceived = true;
         order.receivedAt = Date.now();
         const updatedOrder = await order.save();
@@ -530,23 +533,84 @@ export const confirmOrderReceived = async (req, res) => {
 
 export const requestOrderReturn = async (req, res) => {
     try {
-        const { reason, images, videos } = req.body;
+        const { reason } = req.body;
         const order = await Order.findById(req.params.id);
         if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
-        
+
         if (order.orderStatus !== 'Đã giao') {
             return res.status(400).json({ message: 'Chỉ có thể trả hàng cho đơn hàng đã giao thành công' });
         }
-        
+
         const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
         if (order.deliveredAt && (Date.now() - new Date(order.deliveredAt).getTime() > sevenDaysInMs)) {
             return res.status(400).json({ message: 'Đã quá thời hạn 7 ngày kể từ khi nhận hàng để yêu cầu trả hàng' });
         }
 
+        let images = [];
+        let videos = [];
+
+        // Xử lý nén và lưu ảnh return
+        if (req.files?.returnImages) {
+            const imageFiles = Array.isArray(req.files.returnImages)
+                ? req.files.returnImages
+                : [req.files.returnImages];
+
+            if (imageFiles.length > 6) {
+                return res.status(400).json({ success: false, message: 'Tối đa 6 ảnh cho yêu cầu trả hàng' });
+            }
+
+            const compressedPaths = await Promise.all(
+                imageFiles.map(async (file) => {
+                    const ext = path.extname(file.originalname).toLowerCase();
+                    const outputFilename = file.filename.replace(ext, '.jpg');
+                    const outputPath = path.join(file.destination, outputFilename);
+                    try {
+                        await compressImage(file.path, outputPath, { maxWidth: 1080, maxSizeMB: 2 });
+                        // Xóa file gốc nếu tên khác output
+                        if (file.path !== outputPath && fs.existsSync(file.path)) {
+                            fs.unlinkSync(file.path);
+                        }
+                        return `/${outputPath.replace(/\\/g, '/')}`;
+                    } catch (err) {
+                        console.error('Error compressing return image:', err);
+                        return `/${file.path.replace(/\\/g, '/')}`;
+                    }
+                })
+            );
+            images = compressedPaths;
+        } else if (req.body.images) {
+            images = Array.isArray(req.body.images) ? req.body.images : JSON.parse(req.body.images || '[]');
+        }
+
+        // Xử lý nén và lưu video return
+        if (req.files?.returnVideo) {
+            const videoFile = Array.isArray(req.files.returnVideo)
+                ? req.files.returnVideo[0]
+                : req.files.returnVideo;
+
+            const ext = path.extname(videoFile.originalname).toLowerCase();
+            const outputFilename = videoFile.filename.replace(ext, '.mp4');
+            const outputPath = path.join(videoFile.destination, outputFilename);
+
+            try {
+                await compressVideo(videoFile.path, outputPath);
+                // Xóa file gốc nếu tên khác output
+                if (videoFile.path !== outputPath && fs.existsSync(videoFile.path)) {
+                    fs.unlinkSync(videoFile.path);
+                }
+                videos.push(`/${outputPath.replace(/\\/g, '/')}`);
+            } catch (err) {
+                console.error('Error compressing return video:', err);
+                videos.push(`/${videoFile.path.replace(/\\/g, '/')}`);
+            }
+        } else if (req.body.videos) {
+            videos = Array.isArray(req.body.videos) ? req.body.videos : JSON.parse(req.body.videos || '[]');
+        }
+
         order.orderStatus = 'Trả hàng/Hoàn tiền';
         order.returnReason = reason || '';
-        order.returnImages = images || [];
-        order.returnVideos = videos || [];
+        order.returnImages = images;
+        order.returnVideos = videos;
         order.returnStatus = 'pending';
         order.returnCode = 'RT' + Math.floor(100000 + Math.random() * 900000);
 

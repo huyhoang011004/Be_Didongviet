@@ -17,8 +17,14 @@ import {
 } from '#order/order.controller.js';
 
 import { protect, adminRole, staffRole } from '#middlewares/auth.middleware.js';
+import upload from '#middlewares/upload.middleware.js';
 
 // --- TỐI ƯU CẤU HÌNH MIDDLEWARE PHÂN QUYỀN VẬN HÀNH ---
+
+const returnUpload = upload.fields([
+    { name: 'returnImages', maxCount: 6 },
+    { name: 'returnVideo', maxCount: 1 },
+]);
 
 // ==========================================
 // 1. CLIENT & PUBLIC ROUTES (Khách hàng & Tra cứu public)
@@ -39,7 +45,7 @@ router.get('/myorders', protect, getMyOrders);
 router.put('/:id/pay', protect, updateOrderToPaid);
 router.put('/:id/cancel', protect, cancelOrder);
 router.put('/:id/receive', protect, confirmOrderReceived);
-router.put('/:id/return', protect, requestOrderReturn);
+router.put('/:id/return', protect, returnUpload, requestOrderReturn);
 router.delete('/:id', protect, deleteOrder);
 
 // ==========================================

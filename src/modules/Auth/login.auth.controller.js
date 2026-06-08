@@ -7,6 +7,25 @@ import { sendOTPEmail } from '#utils/emailService.js';
 
 const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL;
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL;
+
+const parseTTL = (ttl) => {
+    if (!ttl) return 0;
+    const value = parseInt(ttl);
+    if (ttl.endsWith('d')) {
+        return value * 24 * 60 * 60 * 1000;
+    }
+    if (ttl.endsWith('h')) {
+        return value * 60 * 60 * 1000;
+    }
+    if (ttl.endsWith('m')) {
+        return value * 60 * 1000;
+    }
+    if (ttl.endsWith('s')) {
+        return value * 1000;
+    }
+    return value;
+};
+
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 export const login = async (req, res) => {
@@ -59,7 +78,7 @@ export const login = async (req, res) => {
         await sessionModel.create({
             userId: user._id,
             refreshToken,
-            expiresAt: new Date(Date.now() + parseInt(REFRESH_TOKEN_TTL))  // Thời gian hết hạn của refreshToken
+            expiresAt: new Date(Date.now() + parseTTL(REFRESH_TOKEN_TTL))  // Thời gian hết hạn của refreshToken
         });
 
         // Trả refreshToken về trong cookies
@@ -67,11 +86,11 @@ export const login = async (req, res) => {
             httpOnly: true,
             secure: true,
             sameSite: 'none',
-            maxAge: parseInt(REFRESH_TOKEN_TTL)
+            maxAge: parseTTL(REFRESH_TOKEN_TTL)
         });
 
-        // trả accessToken về trong res
-        return res.status(200).json({ success: true, message: `Người dùng ${user.name} đăng nhập thành công`, accessToken });
+        // trả accessToken và refreshToken về trong res
+        return res.status(200).json({ success: true, message: `Người dùng ${user.name} đăng nhập thành công`, accessToken, refreshToken });
 
     }
     catch (error) {
@@ -122,7 +141,7 @@ export const googleLoginController = async (req, res) => {
         await sessionModel.create({
             userId: user._id,
             refreshToken,
-            expiresAt: new Date(Date.now() + parseInt(REFRESH_TOKEN_TTL))  // Thời gian hết hạn của refreshToken
+            expiresAt: new Date(Date.now() + parseTTL(REFRESH_TOKEN_TTL))  // Thời gian hết hạn của refreshToken
         });
 
         // Trả refreshToken về trong cookies
@@ -130,11 +149,11 @@ export const googleLoginController = async (req, res) => {
             httpOnly: true,
             secure: true,
             sameSite: 'none',
-            maxAge: parseInt(REFRESH_TOKEN_TTL)
+            maxAge: parseTTL(REFRESH_TOKEN_TTL)
         });
 
-        // trả accessToken về trong res
-        return res.status(200).json({ success: true, message: `Người dùng ${user.name} đăng nhập bằng Google thành công`, accessToken });
+        // trả accessToken và refreshToken về trong res
+        return res.status(200).json({ success: true, message: `Người dùng ${user.name} đăng nhập bằng Google thành công`, accessToken, refreshToken });
 
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -204,6 +223,40 @@ export const resetPassword = async (req, res) => {
             message: 'Mật khẩu đã được thay đổi thành công. Bạn có thể đăng nhập ngay bây giờ.'
         });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const refreshAccessToken = async (req, res) => {
+    try {
+        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+        if (!refreshToken) {
+            return res.status(401).json({ success: false, message: 'Không tìm thấy refresh token' });
+        }
+
+        const session = await sessionModel.findOne({ refreshToken });
+        if (!session) {
+            return res.status(401).json({ success: false, message: 'Refresh token không hợp lệ hoặc đã hết hạn' });
+        }
+
+        if (session.expiresAt < new Date()) {
+            await sessionModel.deleteOne({ _id: session._id });
+            return res.status(401).json({ success: false, message: 'Refresh token đã hết hạn' });
+        }
+
+        const user = await Account.findById(session.userId);
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Người dùng không tồn tại' });
+        }
+
+        const accessToken = jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: ACCESS_TOKEN_TTL,
+        });
+
+        return res.status(200).json({ success: true, accessToken });
+    } catch (error) {
+        console.error('Lỗi khi refresh token:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

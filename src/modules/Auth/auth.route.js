@@ -8,7 +8,8 @@ import {
     login,
     googleLoginController,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    refreshAccessToken
 } from '#auth/login.auth.controller.js';
 import { validateUserFields } from '#middlewares/auth.middleware.js';
 const router = express.Router();
@@ -29,6 +30,9 @@ router.post('/login', validateUserFields, login);
 
 // Route Đăng nhập bằng Google
 router.post('/google-login', googleLoginController);
+
+// Route Refresh Access Token
+router.post('/refresh', refreshAccessToken);
 
 // Route Quên mật khẩu
 router.post('/forgot-password', forgotPassword);

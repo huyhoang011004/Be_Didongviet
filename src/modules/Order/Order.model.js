@@ -34,6 +34,10 @@ const orderSchema = new mongoose.Schema({
             sku: { type: String, default: '' }
         }
     ],
+    deliveryBranch: {
+        name: String,
+        address: String
+    },
     // Thông tin nhận hàng của khách hàng 
     shippingAddress: {
         fullName: { type: String, required: true },
@@ -81,8 +85,8 @@ const orderSchema = new mongoose.Schema({
     returnVideos: [{ type: String }],
     returnCode: { type: String, default: '' },
     returnStatus: { type: String, default: 'none', enum: ['none', 'pending', 'approved', 'rejected'] },
-    isReceived: { type: Boolean, default: false },
-    receivedAt: { type: Date }
+    isReceived: { type: Boolean, default: false }, // Đã nhận hàng (dùng để khách hàng xác nhận đã nhận hàng)
+    receivedAt: { type: Date } // Thời gian khách hàng nhận hàng
 }, { timestamps: true });
 
 export default mongoose.model('Order', orderSchema);

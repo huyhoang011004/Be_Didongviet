@@ -33,6 +33,15 @@ const storage = multer.diskStorage({
         return cb(null, folder);
       }
 
+      // 4. RETURN UPLOAD (ảnh + video trả hàng)
+      if (req.originalUrl.includes("/return") || file.fieldname === "returnVideo" || file.fieldname === "returnImages") {
+        const folder = "uploads/returns";
+        if (!fs.existsSync(folder)) {
+          fs.mkdirSync(folder, { recursive: true });
+        }
+        return cb(null, folder);
+      }
+
       const productId = req.params.id || req.productId;
       if (!productId) {
         return cb(new Error("Thiếu ID sản phẩm cho thư mục upload"));
@@ -96,6 +105,15 @@ const storage = multer.diskStorage({
       return cb(null, `review-img-${uniqueSuffix}${ext}`);
     }
 
+    // Trường hợp upload ảnh/video return
+    if (req.originalUrl.includes("/return") || file.fieldname === "returnVideo" || file.fieldname === "returnImages") {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+      if (file.fieldname === "returnVideo") {
+        return cb(null, `return-video-${uniqueSuffix}${ext}`);
+      }
+      return cb(null, `return-img-${uniqueSuffix}${ext}`);
+    }
+
     const extLower = path.extname(file.originalname).toLowerCase();
     const fieldName = file.fieldname; // 'images', 'variantImages' hoặc 'image'
 
@@ -135,8 +153,8 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // Cho phép video với fieldname reviewVideo
-  if (file.fieldname === "reviewVideo") {
+  // Cho phép video với fieldname reviewVideo hoặc returnVideo
+  if (file.fieldname === "reviewVideo" || file.fieldname === "returnVideo") {
     const allowedVideoTypes = /mp4|mov|avi|webm|mkv/;
     const allowedVideoMimes = /video\/(mp4|quicktime|x-msvideo|webm|x-matroska)/;
     const extension = allowedVideoTypes.test(
@@ -149,8 +167,8 @@ const fileFilter = (req, file, cb) => {
     return cb(new Error("Chỉ chấp nhận định dạng video (mp4, mov, avi, webm)"));
   }
 
-  // Cho phép ảnh với fieldname reviewImages
-  if (file.fieldname === "reviewImages") {
+  // Cho phép ảnh với fieldname reviewImages hoặc returnImages
+  if (file.fieldname === "reviewImages" || file.fieldname === "returnImages") {
     const allowedImageTypes = /jpeg|jpg|png|webp|avif|heic/;
     const extension = allowedImageTypes.test(
       path.extname(file.originalname).toLowerCase().replace(".", ""),
