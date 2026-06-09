@@ -10,21 +10,9 @@ import cookieParser from 'cookie-parser';
 import connectDB from '#config/db.js';
 import { notFound, errorHandler } from '#middlewares/error.middleware.js';
 
-// Routes
-import authRoute from '#auth/auth.route.js';
-import productRoute from '#product/product.route.js';
-import inventoryRoute from '#inventory/inventory.route.js';
-import accountRoute from '#account/account.route.js';
-import orderRoute from '#order/order.route.js';
-import categoryRoute from '#category/category.route.js';
-import voucherRoute from '#voucher/voucher.route.js';
-import cartRoute from '#cart/cart.route.js';
-import blogRoute from '#blog/blog.route.js';
-import studentProfileRoute from '#studentProfile/studentProfile.route.js';
-import branchRoute from '#branch/branch.routes.js';
-import contactRoute from '#contact/contact.route.js';
-import reviewRoute from '#review/review.route.js';
-import flashSaleRoute from '#flashSale/flashSale.route.js';
+// Route Registry - Tập trung tất cả routes
+import { registerRoutes } from '#routes/index.js';
+
 dotenv.config();
 if (process.env.NODE_ENV !== 'test') {
     connectDB();
@@ -49,21 +37,8 @@ if (process.env.NODE_ENV === 'development') {
 // Giúp hiển thị ảnh sản phẩm và ảnh thẻ HSSV trên trình duyệt
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// --- API ENDPOINTS ---
-app.use('/api/v1/auth', authRoute);
-app.use('/api/v1/products', productRoute);
-app.use('/api/v1/inventory', inventoryRoute);
-app.use('/api/v1/accounts', accountRoute);
-app.use('/api/v1/orders', orderRoute);
-app.use('/api/v1/categories', categoryRoute);
-app.use('/api/v1/vouchers', voucherRoute);
-app.use('/api/v1/cart', cartRoute);
-app.use('/api/v1/blogs', blogRoute);
-app.use('/api/v1/student-profile', studentProfileRoute);
-app.use('/api/v1/branches', branchRoute);
-app.use('/api/v1/contacts', contactRoute);
-app.use('/api/v1/reviews', reviewRoute);
-app.use('/api/v1/flash-sales', flashSaleRoute);
+// --- API ENDPOINTS (Đăng ký qua Route Registry) ---
+registerRoutes(app);
 
 app.get('/', (req, res) => {
     res.send('API Di Động Việt đang hoạt động ổn định...');

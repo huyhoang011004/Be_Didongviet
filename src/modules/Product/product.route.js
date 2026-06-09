@@ -29,15 +29,15 @@ const preGenerateProductId = (req, res, next) => {
 }; // Hàm tạo ID ngẫu nhiên cho sản phẩm trước khi tạo
 
 // ==========================================
-// 1. PUBLIC ROUTES
+// 1. PUBLIC ROUTES (Static paths BEFORE dynamic :id params)
 // ==========================================
 
-router.get("/", getAllProducts);
 router.get("/search", searchProducts);
 router.get("/trade-in", getTradeInProducts);
+router.get("/sku/:sku", getProductBySKU);
 router.get("/category/:categoryID", getProductsByCategoryID);
 router.get("/:id/related", getRelatedProducts);
-router.get("/sku/:sku", getProductBySKU);
+router.get("/", getAllProducts);
 router.get("/:id", getProductById);
 
 // ==========================================

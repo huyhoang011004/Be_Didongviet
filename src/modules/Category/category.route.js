@@ -15,14 +15,14 @@ import {
 } from "#category/category.admin.controller.js";
 import { adminRole } from "#middlewares/auth.middleware.js";
 
-// --- ROUTES CÔNG KHAI ---
-router.get("/", getAllCategoriesForUser);
-router.get("/all", getAllCategoriesForAdmin); //admin
+// --- ROUTES CÔNG KHAI (Static paths BEFORE dynamic :id params) ---
+router.get("/all", getAllCategoriesForAdmin);
 router.get("/used-special", getUsedCategories);
 router.get("/slug/:slug", getCategoryBySlug);
+router.get("/", getAllCategoriesForUser);
 router.get("/:id", getCategoryById);
-// --- ROUTES QUẢN TRỊ ---
 
+// --- ROUTES QUẢN TRỊ ---
 router.post("/", adminRole, createCategory);
 router.put("/:id", adminRole, updateCategory);
 router.delete("/:id", adminRole, deleteCategory);
