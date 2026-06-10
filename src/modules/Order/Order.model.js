@@ -20,6 +20,7 @@ const orderSchema = new mongoose.Schema({
             qty: { type: Number, required: true }, // Số lượng đặt mua
             image: { type: String, required: true },
             price: { type: Number, required: true }, // Giá tại thời điểm mua 
+            importPrice: { type: Number, default: 0 }, // Giá nhập - tính lợi nhuận
             product: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'Product',

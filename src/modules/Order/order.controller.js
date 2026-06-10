@@ -242,6 +242,7 @@ export const addOrderItems = async (req, res) => {
             const price = variant
                 ? (variant.salePrice || variant.price || 0)
                 : (product.price || 0);
+            const importPrice = variant?.importPrice || 0;
 
             calculatedItemsPrice += price * item.qty;
 
@@ -252,6 +253,7 @@ export const addOrderItems = async (req, res) => {
                 qty: item.qty,
                 image: variant?.variantImage || product.featuredImage || product.images?.[0]?.url || '',
                 price,
+                importPrice,
                 selectedColor: variant?.color || '',
                 selectedStorage: variant?.ram && variant?.rom ? `${variant.ram}/${variant.rom}` : (variant?.storage || ''),
                 sku

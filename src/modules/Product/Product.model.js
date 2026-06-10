@@ -16,7 +16,7 @@ const productSchema = new mongoose.Schema(
     category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
     brand: { type: String, required: true },
     description: { type: String },
-    condition: { type: String, enum: ['Mới', 'LikeNew', 'Cũ'], default: 'Mới' }, // Đã sửa default
+    condition: { type: String, enum: ['Mới', 'LikeNew', 'Cũ'], default: 'Mới' },
     warrantyPeriod: { type: String, default: '12 tháng' },
     ratingsAverage: { type: Number, default: 0 },
     ratingsCount: { type: Number, default: 0 },
@@ -24,7 +24,7 @@ const productSchema = new mongoose.Schema(
     tradeInBonus: { type: Number, default: 0 },
     slug: { type: String, unique: true },
 
-    // CHI TIẾT CÁC PHIÊN BẢN (Không ôm đồm số lượng kho vào đây nữa)
+    // CHI TIẾT CÁC PHIÊN BẢN
     variants: [
       {
         variantImage: { type: String, default: null },
@@ -33,7 +33,8 @@ const productSchema = new mongoose.Schema(
         rom: { type: String },
         price: { type: Number, required: true },
         salePrice: { type: Number },
-        sku: { type: String, required: true, unique: true }, // Đã sửa bắt buộc
+        importPrice: { type: Number, default: 0 }, // Giá nhập - dùng tính lợi nhuận
+        sku: { type: String, required: true, unique: true },
       },
     ],
     isActive: { type: Boolean, default: true },
@@ -72,7 +73,7 @@ productSchema.virtual("priceRange").get(function () {
   };
 });
 
-// KẾT NỐI VIRTUAL VỚI COLLECTION INVENTORY ĐỂ LẤY THÔNG TIN KHO KHI CẦN
+// KẾT NỐI VIRTUAL VỚI COLLECTION INVENTORY
 productSchema.virtual("inventories", {
   ref: "Inventory",
   localField: "_id",
