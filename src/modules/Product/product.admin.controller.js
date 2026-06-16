@@ -81,18 +81,21 @@ export const deleteProduct = async (req, res) => {
 export const isActiveProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await Product.findById(id);
 
-    if (product) {
-      product.isActive = !product.isActive;
-      await product.save();
-    }
-
-    if (!product) {
+    // Lấy sản phẩm hiện tại để lấy giá trị isActive
+    const current = await Product.findById(id).select('isActive');
+    if (!current) {
       return res
         .status(404)
         .json({ success: false, message: "Không tìm thấy sản phẩm" });
     }
+
+    // Dùng findOneAndUpdate để toggle isActive mà không trigger validation toàn bộ document
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { isActive: !current.isActive },
+      { new: true }
+    );
 
     return res.json({
       success: true,

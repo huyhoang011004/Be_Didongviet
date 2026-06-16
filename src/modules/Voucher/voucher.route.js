@@ -13,7 +13,7 @@ import {
     deleteVoucher
 } from '#voucher/voucher.admin.controller.js';
 
-import { protect, adminRole } from '#middlewares/auth.middleware.js';
+import { protect, adminRole, optionalAuth } from '#middlewares/auth.middleware.js';
 
 // --- ROUTES ADMIN ---
 router.get('/admin', protect, adminRole, getAllVouchersAdmin);
@@ -21,8 +21,8 @@ router.post('/', protect, adminRole, createVoucher);
 router.put('/:id', protect, adminRole, updateVoucher);
 router.delete('/:id', protect, adminRole, deleteVoucher);
 
-// --- ROUTES CÔNG KHAI ---
-router.get('/', getAllVouchers);
+// --- ROUTES CÔNG KHAI (có optional auth để phân quyền HSSV) ---
+router.get('/', optionalAuth, getAllVouchers);
 router.get('/:code', getVoucherByCode);
 
 export default router;

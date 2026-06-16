@@ -38,7 +38,9 @@
     "#routes/*.js": "./src/routes/*.js",
     "#inventory/*.js": "./src/modules/Inventory/*.js",
     "#flashSale/*.js": "./src/modules/FlashSale/*.js",
-    "#analytics/*.js": "./src/modules/Analytics/*.js"
+    "#analytics/*.js": "./src/modules/Analytics/*.js",
+    "#payment/*.js": "./src/modules/Payment/*.js",
+    "#ghn/*.js": "./src/modules/GHN/*.js"
   },
   "dependencies": {
     "bcryptjs": "3.0.3",

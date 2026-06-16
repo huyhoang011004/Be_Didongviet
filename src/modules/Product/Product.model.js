@@ -47,10 +47,9 @@ const productSchema = new mongoose.Schema(
 );
 
 // Tự động tạo slug
-productSchema.pre("save", function (next) {
-  if (!this.isModified("name")) return next();
+productSchema.pre("save", function () {
+  if (!this.isModified("name")) return;
   this.slug = slugify(this.name);
-  next();
 });
 
 // Virtual imageUrl

@@ -48,11 +48,11 @@ const orderSchema = new mongoose.Schema({
         ward: { type: String, required: true },
         streetAddress: { type: String, required: true }
     },
-    // Phương thức thanh toán: COD, VNPAY hoặc Trả góp 0% [5]
+    // Phương thức thanh toán: COD, MOMO, VNPAY hoặc Trả góp 0%
     paymentMethod: {
         type: String,
         required: true,
-        enum: ['COD', 'VNPAY', 'Trả góp 0%']
+        enum: ['COD', 'MOMO', 'VNPAY', 'Trả góp 0%']
     },
     // Chi tiết thanh toán (Dùng để tích hợp với hướng dẫn thanh toán VNPAY) [5, 6]
     paymentResult: {
@@ -87,7 +87,12 @@ const orderSchema = new mongoose.Schema({
     returnCode: { type: String, default: '' },
     returnStatus: { type: String, default: 'none', enum: ['none', 'pending', 'approved', 'rejected'] },
     isReceived: { type: Boolean, default: false }, // Đã nhận hàng (dùng để khách hàng xác nhận đã nhận hàng)
-    receivedAt: { type: Date } // Thời gian khách hàng nhận hàng
+    receivedAt: { type: Date }, // Thời gian khách hàng nhận hàng
+
+    // Thông tin vận đơn GHN
+    ghnOrderCode: { type: String, default: null },   // Mã vận đơn GHN (vd: "HH2034201")
+    ghnOrderId: { type: String, default: null },      // ID đơn hàng trên hệ thống GHN
+    ghnExpectedDeliveryTime: { type: String, default: '' } // Thời gian dự kiến giao từ GHN
 }, { timestamps: true });
 
 export default mongoose.model('Order', orderSchema);

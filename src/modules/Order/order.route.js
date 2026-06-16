@@ -46,13 +46,14 @@ router.put('/:id/pay', protect, updateOrderToPaid);
 router.put('/:id/cancel', protect, cancelOrder);
 router.put('/:id/receive', protect, confirmOrderReceived);
 router.put('/:id/return', protect, returnUpload, requestOrderReturn);
-router.delete('/:id', protect, deleteOrder);
+
 
 // ==========================================
 // 2. MANAGEMENT ROUTES (Bộ phận Vận hành / Nhân viên xử lý đơn)
 // ==========================================
 
 // Nhân viên có thể xem danh sách tất cả đơn hàng để chuẩn bị đóng gói
+router.delete('/:id', protect, deleteOrder);
 router.get('/', staffRole, getAllOrders);
 
 // Nhân viên kho/giao vận cập nhật trạng thái đơn hàng theo quy trình xử lý

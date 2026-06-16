@@ -18,6 +18,8 @@ import contactRoute from '#contact/contact.route.js';
 import reviewRoute from '#review/review.route.js';
 import flashSaleRoute from '#flashSale/flashSale.route.js';
 import analyticsRoute from '#analytics/analytics.route.js';
+import paymentRoute from '#payment/payment.route.js';
+import ghnRoute from '#ghn/ghn.route.js';
 
 const routes = [
     { path: '/api/v1/auth', router: authRoute },
@@ -35,6 +37,8 @@ const routes = [
     { path: '/api/v1/reviews', router: reviewRoute },
     { path: '/api/v1/flash-sales', router: flashSaleRoute },
     { path: '/api/v1/analytics', router: analyticsRoute },
+    { path: '/api/v1/payment', router: paymentRoute },
+    { path: '/api/v1/ghn', router: ghnRoute },
 ];
 
 /**

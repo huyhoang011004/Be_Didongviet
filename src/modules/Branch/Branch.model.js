@@ -6,6 +6,11 @@ const branchSchema = new mongoose.Schema({
     phone: { type: String, required: true },
     managerName: { type: String }, // Tên quản lý chi nhánh
     isActive: { type: Boolean, default: true }, // Để tạm đóng cửa hoặc bảo trì
+    // Thông tin GHN cho chi nhánh (dùng làm địa điểm lấy hàng)
+    ghnDistrictId: { type: Number, default: 0 },   // ID quận/huyện của chi nhánh trên GHN
+    ghnWardCode: { type: String, default: '' },      // Mã phường/xã trên GHN
+    ghnFromName: { type: String, default: '' },      // Tên người gửi mặc định
+    ghnFromPhone: { type: String, default: '' },     // SĐT người gửi mặc định
     location: {
         type: { type: String, enum: ['Point'], default: 'Point' },
         coordinates: { type: [Number], index: '2dsphere' } // Kinh độ, vĩ độ nếu muốn làm tìm chi nhánh gần nhất

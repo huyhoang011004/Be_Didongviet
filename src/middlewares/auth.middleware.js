@@ -89,4 +89,19 @@ const validateUserFields = (req, res, next) => {
     next();
 };
 
-export { protect, adminRole, staffRole, validateUserFields };
+// Middleware optional auth: Nếu có token thì xác thực, nếu không thì bỏ qua
+const optionalAuth = async (req, res, next) => {
+    try {
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            const token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+            req.user = await Account.findById(decoded._id).select('-password');
+        }
+    } catch (error) {
+        // Nếu token không hợp lệ, bỏ qua (không trả lỗi)
+        req.user = null;
+    }
+    next();
+};
+
+export { protect, adminRole, staffRole, validateUserFields, optionalAuth };

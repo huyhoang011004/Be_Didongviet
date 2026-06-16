@@ -48,9 +48,9 @@ export const formatProductResponse = (product, userInfo = null) => {
 
   const finalPrice = userInfo
     ? calculateDiscountedPrice(basePrice, {
-        isDMember: userInfo.isDMember,
-        tradeInBonus: productObj.tradeInBonus,
-      })
+      isDMember: userInfo.isDMember,
+      tradeInBonus: productObj.tradeInBonus,
+    })
     : basePrice;
 
   return {
@@ -136,6 +136,21 @@ export const fetchProducts = async (filters) => {
     .sort(sortOptions[sort] || sortOptions.newest);
 };
 
+// Lấy sản phẩm Thu cũ đổi mới (Trade-in) có mức trợ giá tốt nhất
+export const fetchTradeInProducts = async () => {
+  // 1. Chỉ tìm các sản phẩm có bonus thu cũ đổi mới > 0
+  const query = { tradeInBonus: { $gt: 0 }, isActive: true };
+
+  // 2. Sắp xếp theo mức thưởng cao nhất lên trước
+  const products = await Product.find(query)
+    .sort({ tradeInBonus: -1 })
+    .populate("category", "name slug")
+    .populate("inventories");
+
+  // 3. Format lại dữ liệu trả về (bao gồm link ảnh đầy đủ và giá tính toán)
+  return products.map((p) => formatProductResponse(p));
+};
+
 // Lấy sản phẩm liên quan
 export const fetchRelatedProducts = async (productId, limit = 10, isUsed = undefined, excludeIds = []) => {
   let product;
@@ -166,10 +181,10 @@ export const fetchRelatedProducts = async (productId, limit = 10, isUsed = undef
   let categoryIds = [product.category];
   const currentCategory = await Category.findById(product.category);
   if (currentCategory) {
-    const topAncestorId = currentCategory.ancestors && currentCategory.ancestors.length > 0 
-      ? currentCategory.ancestors[0] 
+    const topAncestorId = currentCategory.ancestors && currentCategory.ancestors.length > 0
+      ? currentCategory.ancestors[0]
       : currentCategory._id;
-      
+
     const relatedCats = await Category.find({
       $or: [
         { _id: topAncestorId },

@@ -4,9 +4,12 @@ import Product from '#product/Product.model.js';
 import Account from '#account/Account.model.js';
 import Cart from '#cart/Cart.model.js';
 import Inventory from '#inventory/Inventory.model.js';
+import Voucher from '#voucher/Voucher.model.js';
 import fs from 'fs';
 import path from 'path';
 import { compressImage, compressVideo } from '#utils/compressMedia.js';
+import Branch from '#branch/Branch.model.js';
+import { createShippingOrder } from '#ghn/ghn.service.js';
 
 const normalizeOrderStatus = (status) => {
     const statusMap = {
@@ -156,7 +159,7 @@ export const checkoutPreview = async (req, res) => {
             shippingAddress: defaultShipping, // Trả về object địa chỉ đã bóc tách chi tiết
             orderItems: verifiedItems,
             itemsPrice,
-            shippingPrice: itemsPrice > 5000000 ? 0 : 30000,
+            shippingPrice: itemsPrice > 2000000 ? 0 : 30000,
             totalPrice: itemsPrice
         });
     } catch (error) {
@@ -178,7 +181,9 @@ export const addOrderItems = async (req, res) => {
             discountDMember,
             tradeInBonus,
             shippingPrice,
-            branchId // Nhận thêm chi nhánh đặt hàng
+            branchId, // Nhận thêm chi nhánh đặt hàng
+            appliedVoucher,   // Mã voucher đã áp dụng
+            discountVoucher   // Số tiền giảm từ voucher
         } = req.body;
 
         if (!orderItems || orderItems.length === 0) {
@@ -261,32 +266,74 @@ export const addOrderItems = async (req, res) => {
         }
 
         // 3. Tính toán tổng tiền cuối cùng (Final Price)
-        const totalDiscount = (discountDMember || 0) + (tradeInBonus || 0);
+        const totalDiscount = (discountDMember || 0) + (tradeInBonus || 0) + (discountVoucher || 0);
         const totalPrice = (calculatedItemsPrice + (shippingPrice || 0)) - totalDiscount;
 
-        // 4. Khởi tạo và tạo đơn hàng mới
+        // 4. Lookup chi nhánh để lưu snapshot thông tin
+        const branchInfo = await Branch.findById(branchId).select('name address phone');
+
+        // 5. Khởi tạo và tạo đơn hàng mới
         const order = new Order({
             user: req.user._id,
             branch: branchId, // Lưu chi nhánh đặt hàng
+            deliveryBranch: branchInfo ? {
+                name: branchInfo.name,
+                address: branchInfo.address,
+                phone: branchInfo.phone,
+            } : undefined,
             orderItems: finalOrderItems,
             shippingAddress,
             paymentMethod,
             itemsPrice: calculatedItemsPrice,
             discountDMember,
             tradeInBonus,
+            appliedVoucher: appliedVoucher || null,
+            discountVoucher: discountVoucher || 0,
             shippingPrice,
             totalPrice: totalPrice < 0 ? 0 : totalPrice, // Đảm bảo không bị âm tiền
         });
 
         const createdOrder = await order.save({ session });
 
-        // 5. Cập nhật: Nếu mua từ Giỏ hàng thành công, xóa các mặt hàng đó khỏi Cart của user
+        // 6. Cập nhật: Nếu mua từ Giỏ hàng thành công, xóa các mặt hàng đó khỏi Cart của user
         const productIds = finalOrderItems.map(item => item.product);
         await Cart.findOneAndUpdate(
             { user: req.user._id },
             { $pull: { items: { product: { $in: productIds } } } },
             { session }
         );
+
+        // 7. Kiểm tra & Tăng usedCount của voucher nếu có mã voucher được áp dụng
+        if (appliedVoucher) {
+            const voucherCode = appliedVoucher.toUpperCase();
+
+            // Kiểm tra maxUsagePerUser
+            const userUsageCount = await Order.countDocuments({
+                user: req.user._id,
+                appliedVoucher: voucherCode,
+                orderStatus: { $nin: ['Đã hủy'] }
+            }).session(session);
+
+            const voucher = await Voucher.findOne({ code: voucherCode }).session(session);
+            if (voucher && userUsageCount >= voucher.maxUsagePerUser) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ success: false, message: `Bạn đã sử dụng mã này ${voucher.maxUsagePerUser} lần. Không thể sử dụng thêm.` });
+            }
+
+            // Kiểm tra usedCount < usageLimit
+            if (voucher && voucher.usedCount >= voucher.usageLimit) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ success: false, message: 'Mã giảm giá đã hết lượt sử dụng.' });
+            }
+
+            await Voucher.findOneAndUpdate(
+                { code: voucherCode },
+                { $inc: { usedCount: 1 } },
+                { session }
+            );
+        }
 
         // Hoàn tất giao dịch
         await session.commitTransaction();
@@ -331,6 +378,14 @@ export const cancelOrder = async (req, res) => {
         });
         await Promise.all(restoreStockPromises);
 
+        // HOÀN LẠI usedCount của voucher nếu đơn hàng có mã voucher
+        if (order.appliedVoucher) {
+            await Voucher.findOneAndUpdate(
+                { code: order.appliedVoucher.toUpperCase() },
+                { $inc: { usedCount: -1 } }
+            );
+        }
+
         res.status(200).json({ success: true, message: 'Đã hủy đơn hàng và hoàn tồn kho' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -356,6 +411,7 @@ export const deleteOrder = async (req, res) => {
 export const getMyOrders = async (req, res) => {
     try {
         const orders = await Order.find({ user: req.user._id })
+            .populate('branch', 'name address phone')
             .populate('orderItems.product', 'variants')
             .sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: orders });
@@ -370,6 +426,7 @@ export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({})
             .populate('user', 'id name')
+            .populate('branch', 'name address phone')
             .populate('orderItems.product', 'variants')
             .sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: orders });
@@ -481,7 +538,8 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: 'Trạng thái đơn hàng không hợp lệ' });
         }
 
-        const order = await Order.findById(req.params.id);
+        // Populate branch để lấy thông tin GHN
+        const order = await Order.findById(req.params.id).populate('branch');
         if (!order) {
             return res.status(404).json({ message: 'Đơn hàng không tồn tại' });
         }
@@ -496,6 +554,27 @@ export const updateOrderStatus = async (req, res) => {
 
         if (!allowedTransitions[currentStatus]?.includes(status)) {
             return res.status(400).json({ message: 'Không thể chuyển trạng thái đơn hàng theo bước này' });
+        }
+
+        // Khi chuyển từ "Chờ lấy hàng" → "Đang giao": Tạo vận đơn GHN
+        if (currentStatus === 'Chờ lấy hàng' && status === 'Đang giao') {
+            try {
+                const branch = await Branch.findById(order.branch);
+                if (branch && branch.ghnDistrictId > 0) {
+                    const ghnResult = await createShippingOrder(order, branch);
+                    if (ghnResult.success && ghnResult.orderCode) {
+                        order.ghnOrderCode = ghnResult.orderCode;
+                        order.ghnOrderId = ghnResult.orderId;
+                        order.ghnExpectedDeliveryTime = ghnResult.expectedDeliveryTime || '';
+                    }
+                } else {
+                    console.warn(`Chi nhánh ${branch?.name || order.branch} chưa cấu hình ghnDistrictId, bỏ qua tạo vận đơn GHN`);
+                }
+            } catch (ghnError) {
+                // Log lỗi nhưng KHÔNG block việc chuyển trạng thái đơn hàng
+                console.error(ghnError);
+                console.error('Lỗi tạo vận đơn GHN:', ghnError.message);
+            }
         }
 
         order.orderStatus = status;
@@ -514,7 +593,7 @@ export const updateOrderStatus = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
+// 6. Xác nhận đã nhận hàng (Dành cho khách hàng sau khi đơn hàng ở trạng thái Đã giao)
 export const confirmOrderReceived = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -532,7 +611,7 @@ export const confirmOrderReceived = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
+// 7. Yêu cầu trả hàng (Có thể upload kèm ảnh/video làm bằng chứng)
 export const requestOrderReturn = async (req, res) => {
     try {
         const { reason } = req.body;

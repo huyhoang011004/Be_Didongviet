@@ -1,7 +1,10 @@
+import mongoose from 'mongoose';
 import Cart from '#cart/Cart.model.js';
 import Product from '#product/Product.model.js';
 import Voucher from '#voucher/Voucher.model.js';
 import StudentProfile from '#studentProfile/StudentProfile.model.js';
+import Inventory from '#inventory/Inventory.model.js';
+import Order from '#order/Order.model.js';
 import { calculateVoucherDiscount } from '#utils/voucherHelper.js';
 
 // --- THÊM VÀO GIỎ HÀNG ---
@@ -16,8 +19,15 @@ export const addToCart = async (req, res) => {
         const variant = product.variants.find(v => v._id.toString() === variantId);
         if (!variant) return res.status(404).json({ success: false, message: 'Phiên bản không hợp lệ' });
 
-        if (variant.stock < quantity) {
-            return res.status(400).json({ success: false, message: `Rất tiếc, phiên bản này chỉ còn ${variant.stock} sản phẩm` });
+        // Tính tồn kho thực tế từ Inventory cho variant này
+        const stockDocs = await Inventory.aggregate([
+            { $match: { sku: variant.sku } },
+            { $group: { _id: null, totalStock: { $sum: '$stock' } } }
+        ]);
+        const actualStock = stockDocs.length > 0 ? stockDocs[0].totalStock : 0;
+
+        if (actualStock < quantity) {
+            return res.status(400).json({ success: false, message: `Rất tiếc, phiên bản này chỉ còn ${actualStock} sản phẩm` });
         }
 
         let cart = await Cart.findOne({ user: userId });
@@ -31,31 +41,31 @@ export const addToCart = async (req, res) => {
             if (itemIndex > -1) {
                 // Kiểm tra nếu tổng số lượng mới vượt quá tồn kho
                 const newQuantity = cart.items[itemIndex].quantity + quantity;
-                if (variant.stock < newQuantity) {
+                if (actualStock < newQuantity) {
                     return res.status(400).json({ success: false, message: 'Vượt quá số lượng tồn kho cho phép' });
                 }
                 cart.items[itemIndex].quantity = newQuantity;
             } else {
-                cart.items.push({ 
-                    product: productId, 
-                    variantId, 
-                    quantity, 
-                    selectedColor: variant.color, 
-                    selectedStorage: variant.ram && variant.rom ? `${variant.ram}/${variant.rom}` : (variant.storage || ''), 
-                    price 
+                cart.items.push({
+                    product: productId,
+                    variantId,
+                    quantity,
+                    selectedColor: variant.color,
+                    selectedStorage: variant.ram && variant.rom ? `${variant.ram}/${variant.rom}` : (variant.storage || ''),
+                    price
                 });
             }
             await cart.save();
         } else {
             cart = await Cart.create({
                 user: userId,
-                items: [{ 
-                    product: productId, 
-                    variantId, 
-                    quantity, 
-                    selectedColor: variant.color, 
-                    selectedStorage: variant.ram && variant.rom ? `${variant.ram}/${variant.rom}` : (variant.storage || ''), 
-                    price 
+                items: [{
+                    product: productId,
+                    variantId,
+                    quantity,
+                    selectedColor: variant.color,
+                    selectedStorage: variant.ram && variant.rom ? `${variant.ram}/${variant.rom}` : (variant.storage || ''),
+                    price
                 }]
             });
         }
@@ -86,7 +96,14 @@ export const updateCartItem = async (req, res) => {
             const variant = product.variants.find(v => v._id.toString() === variantId);
             if (!variant) return res.status(404).json({ message: 'Phiên bản không tồn tại' });
 
-            if (variant.stock < quantity) {
+            // Tính tồn kho thực tế từ Inventory cho variant này
+            const stockDocs = await Inventory.aggregate([
+                { $match: { sku: variant.sku } },
+                { $group: { _id: null, totalStock: { $sum: '$stock' } } }
+            ]);
+            const actualStock = stockDocs.length > 0 ? stockDocs[0].totalStock : 0;
+
+            if (actualStock < quantity) {
                 return res.status(400).json({ success: false, message: 'Số lượng yêu cầu vượt quá tồn kho' });
             }
 
@@ -142,7 +159,7 @@ export const getCart = async (req, res) => {
         // Populate thông tin sản phẩm đầy đủ để hiển thị lên giao diện
         await cart.populate({
             path: 'items.product',
-            select: 'name images category variants slug',
+            select: 'name images category variants slug isActive',
             populate: {
                 path: 'category',
                 select: 'name slug'
@@ -166,34 +183,81 @@ export const getCart = async (req, res) => {
             const { discount, reason } = await calculateVoucherDiscount(cart.appliedVoucher, currentSubTotal, req.user._id);
 
             if (reason) {
-                // NẾU VOUCHER BỊ LỖI HOẶC HẾT HẠN:
-                // Xóa trắng dữ liệu mã giảm giá ngay trong DB
                 cart.appliedVoucher = null;
                 cart.discountAmount = 0;
                 cart.finalPrice = currentSubTotal;
-
-                await cart.save(); // Lưu lại thay đổi vào database
+                await cart.save();
             } else {
-                // NẾU VOUCHER HỢP LỆ:
-                // Cập nhật số tiền giảm và giá cuối cùng mới nhất vào DB
                 cart.discountAmount = discount;
                 cart.finalPrice = Math.max(0, currentSubTotal - discount);
-
-                await cart.save(); // Lưu lại để đồng bộ database
+                await cart.save();
             }
         } else {
-            // NẾU GIỎ HÀNG KHÔNG ÁP DỤNG VOUCHER NÀO:
-            // Đảm bảo database sạch sẽ, không lưu đè dữ liệu cũ rác
             cart.discountAmount = 0;
             cart.finalPrice = currentSubTotal;
-
             await cart.save();
         }
 
-        // Trả về object Giỏ hàng đã được đồng bộ chuẩn chỉnh từ DB
+        // Sau khi lưu, chuyển cart sang plain object để tránh Mongoose strip field lạ
+        const cartObj = cart.toObject();
+
+        // Lấy danh sách tất cả productId và sku từ cart items
+        const productIds = [];
+        const allSkuList = [];
+        cartObj.items.forEach(item => {
+            const prod = item.product || {};
+            if (prod._id && !productIds.includes(prod._id.toString())) {
+                productIds.push(prod._id.toString());
+            }
+            if (prod.variants) {
+                prod.variants.forEach(v => {
+                    if (v.sku && !allSkuList.includes(v.sku)) {
+                        allSkuList.push(v.sku);
+                    }
+                });
+            }
+        });
+
+        // Tính tổng tồn kho theo productId (tổng toàn bộ sản phẩm)
+        const productStockMap = {};
+        if (productIds.length > 0) {
+            const productStockDocs = await Inventory.aggregate([
+                { $match: { product: { $in: productIds.map(id => new mongoose.Types.ObjectId(id)) } } },
+                { $group: { _id: '$product', totalStock: { $sum: '$stock' } } }
+            ]);
+            productStockDocs.forEach(item => {
+                productStockMap[item._id.toString()] = item.totalStock;
+            });
+        }
+
+        // Tính tổng tồn kho theo sku (tổng của từng phân loại)
+        const skuStockMap = {};
+        if (allSkuList.length > 0) {
+            const skuStockDocs = await Inventory.aggregate([
+                { $match: { sku: { $in: allSkuList } } },
+                { $group: { _id: '$sku', totalStock: { $sum: '$stock' } } }
+            ]);
+            skuStockDocs.forEach(item => {
+                skuStockMap[item._id] = item.totalStock;
+            });
+        }
+
+        // Gắn stock vào từng variant và isProductActive, totalStock vào product
+        cartObj.items.forEach(item => {
+            const prod = item.product || {};
+            if (prod.variants) {
+                prod.variants.forEach(v => {
+                    v.stock = skuStockMap[v.sku] || 0;
+                });
+            }
+            // Gắn tổng tồn kho của toàn bộ sản phẩm (tùy chọn cho FE nếu cần)
+            prod.totalStock = productStockMap[prod._id?.toString()] || 0;
+        });
+
+        // Trả về plain object (không bị Mongoose strip field)
         return res.status(200).json({
             success: true,
-            data: cart
+            data: cartObj
         });
 
     } catch (error) {
@@ -217,20 +281,35 @@ export const applyVoucher = async (req, res) => {
 
         if (!voucher) return res.status(404).json({ success: false, message: 'Mã không tồn tại hoặc hết hạn' });
 
-        // 2. Tìm Giỏ hàng
+        // 2. Kiểm tra số lượt dùng tổng (usageLimit)
+        if (voucher.usedCount >= voucher.usageLimit) {
+            return res.status(400).json({ success: false, message: 'Mã giảm giá đã hết lượt sử dụng' });
+        }
+
+        // 3. Kiểm tra số lượt dùng của user (maxUsagePerUser)
+        const userUsageCount = await Order.countDocuments({
+            user: userId,
+            appliedVoucher: voucher.code,
+            orderStatus: { $nin: ['Đã hủy'] }
+        });
+        if (userUsageCount >= voucher.maxUsagePerUser) {
+            return res.status(400).json({ success: false, message: `Bạn đã sử dụng mã này ${voucher.maxUsagePerUser} lần. Không thể sử dụng thêm.` });
+        }
+
+        // 4. Tìm Giỏ hàng
         const cart = await Cart.findOne({ user: userId });
         if (!cart || cart.items.length === 0) return res.status(400).json({ success: false, message: 'Giỏ hàng trống' });
 
         // Tính tạm tính để check điều kiện voucher
         const currentSubTotal = cart.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-        // 3. Check HSSV (Nếu có)
+        // 5. Check HSSV (Nếu có)
         if (voucher.isHSSVOnly) {
             const student = await StudentProfile.findOne({ userId, isHSSVVerified: 'Đã xác thực' });
             if (!student) return res.status(403).json({ success: false, message: 'Chỉ dành cho HSSV đã xác thực' });
         }
 
-        // 4. Tính toán số tiền giảm
+        // 6. Tính toán số tiền giảm
         let discount = 0;
         if (voucher.discountType === 'hssv_tiered') {
             const matchingTier = voucher.hssvTiers
@@ -251,7 +330,7 @@ export const applyVoucher = async (req, res) => {
             }
         }
 
-        // 5. CẬP NHẬT VÀO DATABASE (Chỉ lưu code, không lưu discount cố định)
+        // 7. CẬP NHẬT VÀO DATABASE (Chỉ lưu code, không lưu discount cố định)
         cart.appliedVoucher = voucher.code;
 
         await cart.save(); // Khi save, pre-save middleware chỉ cần tính subTotal của các item.

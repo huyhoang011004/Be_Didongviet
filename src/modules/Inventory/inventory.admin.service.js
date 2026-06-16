@@ -6,11 +6,38 @@ import Branch from '#branch/Branch.model.js';
 import mongoose from 'mongoose';
 import { formatProductWithInventories } from '#product/product.service.js';
 
+// Helper: Format sản phẩm tồn kho kèm imageUrl đầy đủ (dùng cho admin inventory)
+const formatInventoryProduct = (product) => {
+    const formatted = formatProductWithInventories(product);
+    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+
+    let imageUrl = null;
+    if (formatted.images && formatted.images.length > 0) {
+        const thumbImg = formatted.images.find(img => img.isThumbnail);
+        const firstImg = thumbImg || formatted.images[0];
+        const rawUrl = typeof firstImg === 'string' ? firstImg : firstImg?.url;
+        if (rawUrl) {
+            imageUrl = rawUrl.startsWith('http') ? rawUrl : `${baseUrl}${rawUrl}`;
+        }
+    } else if (formatted.imageUrl) {
+        // Fallback: dùng virtual imageUrl từ model nếu có
+        imageUrl = formatted.imageUrl.startsWith('http') ? formatted.imageUrl : `${baseUrl}${formatted.imageUrl}`;
+    } else if (formatted.thumbnail) {
+        // Fallback: dùng thumbnail nếu có
+        imageUrl = formatted.thumbnail.startsWith('http') ? formatted.thumbnail : `${baseUrl}${formatted.thumbnail}`;
+    }
+
+    return {
+        ...formatted,
+        imageUrl,
+    };
+};
+
 // Helper: Xác định trạng thái tổng hợp dựa trên mức tồn kho thấp nhất trong các chi nhánh
 const getOverallStatus = (product, branches, threshold, selectedBranchFilter = null) => {
     let hasOutOfStock = false;
     let hasLowStock = false;
-    
+
     const inventories = product.inventories || [];
     const invMap = {};
     inventories.forEach(inv => {
@@ -20,7 +47,7 @@ const getOverallStatus = (product, branches, threshold, selectedBranchFilter = n
         }
     });
 
-    const targetBranches = selectedBranchFilter 
+    const targetBranches = selectedBranchFilter
         ? branches.filter(b => b._id.toString() === selectedBranchFilter.toString())
         : branches;
 
@@ -34,7 +61,7 @@ const getOverallStatus = (product, branches, threshold, selectedBranchFilter = n
             }
         }
     }
-    
+
     if (hasOutOfStock) return 'out-of-stock';
     if (hasLowStock) return 'low-stock';
     return 'in-stock';
@@ -93,7 +120,7 @@ export const getLowStockProductsService = async (thresholdQuery, pageQuery, limi
 
     const totalItems = lowStockProducts.length;
     const paginatedProducts = lowStockProducts.slice(skip, skip + limit);
-    const formattedProducts = paginatedProducts.map(p => formatProductWithInventories(p));
+    const formattedProducts = paginatedProducts.map(p => formatInventoryProduct(p));
 
     return {
         products: formattedProducts,
@@ -161,7 +188,7 @@ export const getOutOfStockProductsService = async (pageQuery, limitQuery, catego
 
     const totalItems = outOfStockProducts.length;
     const paginatedProducts = outOfStockProducts.slice(skip, skip + limit);
-    const formattedProducts = paginatedProducts.map(p => formatProductWithInventories(p));
+    const formattedProducts = paginatedProducts.map(p => formatInventoryProduct(p));
 
     return {
         products: formattedProducts,
@@ -404,7 +431,7 @@ export const getProductsByBranchService = async (branchId, pageQuery, limitQuery
 
     const totalItems = filteredProducts.length;
     const paginatedProducts = filteredProducts.slice(skip, skip + limit);
-    const formattedProducts = paginatedProducts.map(p => formatProductWithInventories(p));
+    const formattedProducts = paginatedProducts.map(p => formatInventoryProduct(p));
 
     return {
         products: formattedProducts,

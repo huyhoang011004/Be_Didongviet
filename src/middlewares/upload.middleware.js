@@ -4,80 +4,71 @@ import fs from "fs";
 import slugify from "#utils/slugify.js";
 
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    try {
-      // 1. AVATAR UPLOAD
-      if (file.fieldname === "avatar") {
-        const folder = "uploads/avatars";
-        if (!fs.existsSync(folder)) {
-          fs.mkdirSync(folder, { recursive: true });
-        }
-        return cb(null, folder);
+  destination: (req, file, cb) => {
+    // 1. AVATAR UPLOAD
+    if (file.fieldname === "avatar") {
+      const folder = "uploads/avatars";
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
       }
-
-      // 2. VERIFY HSSV
-      if (req.originalUrl.includes("verify-hssv")) {
-        const folder = "uploads/verify";
-        if (!fs.existsSync(folder)) {
-          fs.mkdirSync(folder, { recursive: true });
-        }
-        return cb(null, folder);
-      }
-
-      // 3. REVIEW UPLOAD (ảnh + video đánh giá)
-      if (req.originalUrl.includes("/reviews/")) {
-        const folder = "uploads/reviews";
-        if (!fs.existsSync(folder)) {
-          fs.mkdirSync(folder, { recursive: true });
-        }
-        return cb(null, folder);
-      }
-
-      // 4. RETURN UPLOAD (ảnh + video trả hàng)
-      if (req.originalUrl.includes("/return") || file.fieldname === "returnVideo" || file.fieldname === "returnImages") {
-        const folder = "uploads/returns";
-        if (!fs.existsSync(folder)) {
-          fs.mkdirSync(folder, { recursive: true });
-        }
-        return cb(null, folder);
-      }
-
-      const productId = req.params.id || req.productId;
-      if (!productId) {
-        return cb(new Error("Thiếu ID sản phẩm cho thư mục upload"));
-      }
-
-      let productName = req.body.name;
-
-      // Nếu là Update (có params.id) và thiếu thông tin từ body
-      if (!productName && req.params.id) {
-        const Product = (await import("#product/Product.model.js")).default;
-        const product = await Product.findById(req.params.id);
-        if (product) {
-          productName = product.name;
-        }
-      }
-
-      if (productName) {
-        // ĐÍNH PRODUCT NAME VÀO REQ ĐỂ HÀM FILENAME BÊN DƯỚI SỬ DỤNG
-        req.productSlugForFilename = slugify(productName);
-      }
-
-      // Full path: uploads/products/productId
-      const uploadPath = path.join("uploads", "products", productId);
-
-      // Tự tạo folder nếu chưa có
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-
-      cb(null, uploadPath);
-    } catch (error) {
-      cb(error);
+      return cb(null, folder);
     }
+
+    // 2. VERIFY HSSV
+    if (req.originalUrl.includes("verify-hssv")) {
+      const folder = "uploads/verify";
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
+      }
+      return cb(null, folder);
+    }
+
+    // 2b. STUDENT PROFILE UPLOAD CARD
+    if (req.originalUrl.includes("student-profile")) {
+      const folder = "uploads/verify";
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
+      }
+      return cb(null, folder);
+    }
+
+    // 3. REVIEW UPLOAD (ảnh + video đánh giá)
+    if (req.originalUrl.includes("/reviews/")) {
+      const folder = "uploads/reviews";
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
+      }
+      return cb(null, folder);
+    }
+
+    // 4. RETURN UPLOAD (ảnh + video trả hàng)
+    if (req.originalUrl.includes("/return") || file.fieldname === "returnVideo" || file.fieldname === "returnImages") {
+      const folder = "uploads/returns";
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
+      }
+      return cb(null, folder);
+    }
+
+    const productId = req.params.id || req.productId;
+    if (!productId) {
+      return cb(new Error("Thiếu ID sản phẩm cho thư mục upload"));
+    }
+
+    let productName = req.body.name;
+
+    // Full path: uploads/products/productId
+    const uploadPath = path.join("uploads", "products", productId);
+
+    // Tự tạo folder nếu chưa có
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+
+    cb(null, uploadPath);
   },
 
-  filename: async (req, file, cb) => {
+  filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
 
     // Trường hợp upload avatar
@@ -90,6 +81,14 @@ const storage = multer.diskStorage({
 
     // Trường hợp upload ảnh xác minh HSSV không cần đặt tên theo sản phẩm
     if (req.originalUrl.includes("verify-hssv")) {
+      return cb(
+        null,
+        `hssv-${Date.now()}-${Math.round(Math.random() * 1e4)}${ext}`,
+      );
+    }
+
+    // Trường hợp upload ảnh thẻ sinh viên (student-profile)
+    if (req.originalUrl.includes("student-profile")) {
       return cb(
         null,
         `hssv-${Date.now()}-${Math.round(Math.random() * 1e4)}${ext}`,
@@ -114,7 +113,6 @@ const storage = multer.diskStorage({
       return cb(null, `return-img-${uniqueSuffix}${ext}`);
     }
 
-    const extLower = path.extname(file.originalname).toLowerCase();
     const fieldName = file.fieldname; // 'images', 'variantImages' hoặc 'image'
 
     if (fieldName === "images") {
@@ -126,24 +124,6 @@ const storage = multer.diskStorage({
       const match = file.originalname.match(/^variant_(\d+)_/);
       const idx = match ? match[1] : "unknown";
       return cb(null, `variant_${idx}${ext}`);
-    }
-
-    // Trường hợp thay thế ảnh đơn lẻ với fieldname 'image'
-    if (fieldName === "image" && req.params.id && req.params.imageId) {
-      try {
-        const Product = (await import("#product/Product.model.js")).default;
-        const product = await Product.findById(req.params.id);
-        if (product) {
-          const image = product.images.id(req.params.imageId);
-          if (image) {
-            const oldFilename = path.basename(image.url);
-            const oldNameWithoutExt = path.parse(oldFilename).name;
-            return cb(null, `${oldNameWithoutExt}${ext}`);
-          }
-        }
-      } catch (err) {
-        console.error("Lỗi lấy tên tệp ảnh cũ:", err);
-      }
     }
 
     // Các trường hợp khác làm dự phòng

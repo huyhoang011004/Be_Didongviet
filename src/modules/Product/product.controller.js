@@ -150,7 +150,41 @@ export const getProductsByCategoryID = async (req, res) => {
          .skip(skip)
          .limit(limit);
 
-      const formattedProducts = products.map(p => formatProductResponse(p, req.user));
+      // Format sản phẩm và tính totalStock từ variant.inventory
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      const formattedProducts = products.map(p => {
+         const productWithInv = formatProductWithInventories(p);
+         const variants = productWithInv.variants || [];
+
+         // Tính totalStock: tổng tất cả chi nhánh
+         const totalStock = variants.reduce((total, variant) => {
+            return total + (variant.inventory || []).reduce((sum, inv) => sum + (inv.stock || 0), 0);
+         }, 0);
+
+         // Tính priceRange từ variants
+         const prices = variants.map(v => v.salePrice || v.price || 0).filter(p => p > 0);
+         const priceRange = prices.length > 0
+            ? { min: Math.min(...prices), max: Math.max(...prices) }
+            : null;
+
+         // Lấy imageUrl (ưu tiên isThumbnail, rồi ảnh đầu tiên)
+         let imageUrl = null;
+         if (p.images && p.images.length > 0) {
+            const thumbImg = p.images.find(img => img.isThumbnail);
+            const firstImg = thumbImg || p.images[0];
+            const rawUrl = typeof firstImg === 'string' ? firstImg : firstImg?.url;
+            if (rawUrl) {
+               imageUrl = rawUrl.startsWith('http') ? rawUrl : `${baseUrl}${rawUrl}`;
+            }
+         }
+
+         return {
+            ...productWithInv,
+            totalStock,
+            priceRange,
+            imageUrl,
+         };
+      });
 
       res.json({
          success: true,
