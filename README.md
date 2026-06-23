@@ -223,4 +223,4 @@ Backend cung cấp RESTful API với prefix `/api/v1`. Các nhóm API chính:
 
 > ⚡ **Tác giả:** Nguyễn Văn Huy Hoàng  
 > **Đề tài:** Hệ thống quản lý và bán hàng trực tuyến cho chuỗi cửa hàng Di Động Việt  
-> **Frontend:** https://github.com/<your-username>/fe_didongviet_nextjs
+> **Frontend:** https://github.com/huyhoang011004/fe_didongviet_nextjs
