@@ -241,10 +241,8 @@ export const handleVNPayReturn = async (req, res) => {
                         update_time: new Date().toISOString(),
                     };
                     await order.save();
-                    console.log(`[VNPay Return] Đã cập nhật đơn hàng ${orderId} thành công`);
                 }
             } catch (dbError) {
-                console.error('[VNPay Return] Lỗi cập nhật DB:', dbError);
             }
         }
 
@@ -255,7 +253,7 @@ export const handleVNPayReturn = async (req, res) => {
         });
     } catch (error) {
         console.error('Lỗi xử lý VNPay return:', error);
-        return res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -285,10 +283,8 @@ export const handleMoMoReturn = async (req, res) => {
                         update_time: new Date().toISOString(),
                     };
                     await order.save();
-                    console.log(`[MoMo Return] Đã cập nhật đơn hàng ${orderId} thành công`);
                 }
             } catch (dbError) {
-                console.error('[MoMo Return] Lỗi cập nhật DB:', dbError);
             }
         }
 

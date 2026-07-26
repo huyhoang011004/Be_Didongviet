@@ -4,7 +4,7 @@ import Product from '#product/Product.model.js';
 import Category from '#category/Category.model.js';
 import mongoose from 'mongoose';
 import * as productService from '#product/product.service.js';
-import { formatProductResponse, formatProductWithInventories } from './product.service.js';
+import { formatProductResponse, formatProductWithInventories, formatProductListResponse } from './product.service.js';
 import slugify from '#utils/slugify.js';
 
 export const getAllProducts = async (req, res) => {
@@ -36,52 +36,7 @@ export const getAllProducts = async (req, res) => {
 
       // Format sản phẩm và tính totalStock từ variant.inventory inline
       const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-      const formattedProducts = products.map(p => {
-         const productWithInv = formatProductWithInventories(p);
-         const variants = productWithInv.variants || [];
-
-         // Tính totalStock từ variant.inventory
-         let totalStock;
-         if (branchId) {
-            // Lọc theo chi nhánh cụ thể
-            totalStock = variants.reduce((total, variant) => {
-               const branchInv = (variant.inventory || []).find(inv => {
-                  const branchRef = inv.branch?._id || inv.branch;
-                  return branchRef && branchRef.toString() === branchId.toString();
-               });
-               return total + (branchInv ? (branchInv.stock || 0) : 0);
-            }, 0);
-         } else {
-            // Tổng tất cả chi nhánh
-            totalStock = variants.reduce((total, variant) => {
-               return total + (variant.inventory || []).reduce((sum, inv) => sum + (inv.stock || 0), 0);
-            }, 0);
-         }
-
-         // Tính priceRange từ variants
-         const prices = variants.map(v => v.salePrice || v.price || 0).filter(p => p > 0);
-         const priceRange = prices.length > 0
-            ? { min: Math.min(...prices), max: Math.max(...prices) }
-            : null;
-
-         // Lấy imageUrl (ưu tiên isThumbnail, rồi ảnh đầu tiên)
-         let imageUrl = null;
-         if (p.images && p.images.length > 0) {
-            const thumbImg = p.images.find(img => img.isThumbnail);
-            const firstImg = thumbImg || p.images[0];
-            const rawUrl = typeof firstImg === 'string' ? firstImg : firstImg?.url;
-            if (rawUrl) {
-               imageUrl = rawUrl.startsWith('http') ? rawUrl : `${baseUrl}${rawUrl}`;
-            }
-         }
-
-         return {
-            ...productWithInv,
-            totalStock,
-            priceRange,
-            imageUrl,
-         };
-      });
+      const formattedProducts = formatProductListResponse(products, branchId, baseUrl);
 
       res.status(200).json({
          success: true,

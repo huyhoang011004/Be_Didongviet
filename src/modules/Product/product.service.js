@@ -60,6 +60,55 @@ export const formatProductResponse = (product, userInfo = null) => {
   };
 };
 
+export const formatProductListResponse = (products, branchId, baseUrl = 'http://localhost:5000') => {
+  return products.map(p => {
+    const productWithInv = formatProductWithInventories(p);
+    const variants = productWithInv.variants || [];
+
+    // Tính totalStock từ variant.inventory
+    let totalStock;
+    if (branchId) {
+      // Lọc theo chi nhánh cụ thể
+      totalStock = variants.reduce((total, variant) => {
+        const branchInv = (variant.inventory || []).find(inv => {
+          const branchRef = inv.branch?._id || inv.branch;
+          return branchRef && branchRef.toString() === branchId.toString();
+        });
+        return total + (branchInv ? (branchInv.stock || 0) : 0);
+      }, 0);
+    } else {
+      // Tổng tất cả chi nhánh
+      totalStock = variants.reduce((total, variant) => {
+        return total + (variant.inventory || []).reduce((sum, inv) => sum + (inv.stock || 0), 0);
+      }, 0);
+    }
+
+    // Tính priceRange từ variants
+    const prices = variants.map(v => v.salePrice || v.price || 0).filter(pr => pr > 0);
+    const priceRange = prices.length > 0
+      ? { min: Math.min(...prices), max: Math.max(...prices) }
+      : null;
+
+    // Lấy imageUrl (ưu tiên isThumbnail, rồi ảnh đầu tiên)
+    let imageUrl = null;
+    if (p.images && p.images.length > 0) {
+      const thumbImg = p.images.find(img => img.isThumbnail);
+      const firstImg = thumbImg || p.images[0];
+      const rawUrl = typeof firstImg === 'string' ? firstImg : firstImg?.url;
+      if (rawUrl) {
+        imageUrl = rawUrl.startsWith('http') ? rawUrl : `${baseUrl}${rawUrl}`;
+      }
+    }
+
+    return {
+      ...productWithInv,
+      totalStock,
+      priceRange,
+      imageUrl,
+    };
+  });
+};
+
 // Lấy danh sách sản phẩm kèm bộ lọc và tìm kiếm
 export const fetchProducts = async (filters) => {
   const {
@@ -129,7 +178,7 @@ export const fetchProducts = async (filters) => {
     newest: { createdAt: -1 },
   };
 
-  console.log("fetchProducts final query:", JSON.stringify(query, null, 2));
+  // console.log("fetchProducts final query:", JSON.stringify(query, null, 2));
   return await Product.find(query)
     .populate("category", "name slug")
     .populate("inventories")

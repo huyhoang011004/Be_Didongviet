@@ -180,7 +180,7 @@ export const updateProductService = async (id, bodyData, files) => {
           if (fs.existsSync(filePath)) {
             try {
               fs.unlinkSync(filePath);
-              console.log("Đã xóa file ảnh vật lý thành công:", filePath);
+              // console.log("Đã xóa file ảnh vật lý thành công:", filePath);
             } catch (err) {
               console.warn("Không thể xóa file ảnh cũ:", filePath, err.message);
             }
