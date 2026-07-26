@@ -1,6 +1,10 @@
 import crypto from 'crypto';
 import querystring from 'querystring';
 
+// Đọc base URL từ env - tự động hoạt động trên cả localhost lẫn production
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const SERVER_URL = process.env.BASE_URL || 'http://localhost:5000';
+
 // ============================================================
 // CẤU HÌNH MoMo Sandbox
 // ============================================================
@@ -9,8 +13,8 @@ const MOMO_CONFIG = {
     accessKey: process.env.MOMO_ACCESS_KEY || 'F8BBA842ECF85',
     secretKey: process.env.MOMO_SECRET_KEY || 'K951B6PE1waDMi640xX08PD3vg6EkVlz',
     endpoint: process.env.MOMO_ENDPOINT || 'https://test-payment.momo.vn/v2/gateway/api/create',
-    redirectUrl: process.env.MOMO_REDIRECT_URL || 'http://localhost:3000/checkout/success',
-    ipnUrl: process.env.MOMO_IPN_URL || 'http://localhost:5000/api/v1/payment/momo/ipn',
+    redirectUrl: `${CLIENT_URL}/checkout/success`,
+    ipnUrl: `${SERVER_URL}/api/v1/payment/momo/ipn`,
 };
 
 // ============================================================
@@ -20,8 +24,8 @@ const VNPAY_CONFIG = {
     tmnCode: process.env.VNPAY_TMN_CODE || 'NT4A2R45',
     hashSecret: process.env.VNPAY_HASH_SECRET || '1FTT1PVGT7CMJW6W01NMYPOV7T22TT2O',
     url: process.env.VNPAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
-    returnUrl: process.env.VNPAY_RETURN_URL || 'http://localhost:3000/checkout/success',
-    ipnUrl: process.env.VNPAY_IPN_URL || 'http://localhost:5000/api/v1/payment/vnpay/ipn',
+    returnUrl: `${CLIENT_URL}/checkout/success`,
+    ipnUrl: `${SERVER_URL}/api/v1/payment/vnpay/ipn`,
 };
 
 // ============================================================
