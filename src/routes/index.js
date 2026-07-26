@@ -20,6 +20,7 @@ import flashSaleRoute from '#flashSale/flashSale.route.js';
 import analyticsRoute from '#analytics/analytics.route.js';
 import paymentRoute from '#payment/payment.route.js';
 import ghnRoute from '#ghn/ghn.route.js';
+import bannerRoute from '../modules/Banner/banner.route.js';
 
 const routes = [
     { path: '/api/v1/auth', router: authRoute },
@@ -39,6 +40,7 @@ const routes = [
     { path: '/api/v1/analytics', router: analyticsRoute },
     { path: '/api/v1/payment', router: paymentRoute },
     { path: '/api/v1/ghn', router: ghnRoute },
+    { path: '/api/v1/banners', router: bannerRoute },
 ];
 
 /**

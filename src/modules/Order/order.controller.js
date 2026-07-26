@@ -10,6 +10,7 @@ import path from 'path';
 import { compressImage, compressVideo } from '#utils/compressMedia.js';
 import Branch from '#branch/Branch.model.js';
 import { createShippingOrder } from '#ghn/ghn.service.js';
+import FlashSale from '#flashSale/FlashSale.model.js';
 
 const normalizeOrderStatus = (status) => {
     const statusMap = {
@@ -117,6 +118,25 @@ export const checkoutPreview = async (req, res) => {
             streetAddress: defaultAddress?.streetAddress || ''
         };
 
+        // Kiểm tra Flash Sale đang hoạt động
+        const now = new Date();
+        const currentHour = now.getHours();
+        const activeSale = await FlashSale.findOne({
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+            isActive: true
+        });
+
+        let activeSaleProducts = [];
+        let activeSaleId = null;
+        if (activeSale) {
+            const activeSlot = activeSale.timeSlots.find(slot => currentHour >= slot && currentHour < (slot + (activeSale.duration / 60)));
+            if (activeSlot !== undefined) {
+                activeSaleProducts = activeSale.products;
+                activeSaleId = activeSale._id;
+            }
+        }
+
         // 2. Logic tính toán giá tiền 
         let itemsPrice = 0;
         const verifiedItems = [];
@@ -134,11 +154,19 @@ export const checkoutPreview = async (req, res) => {
                 }
             }
 
-            const price = variant
+            let price = variant
                 ? (variant.salePrice || variant.price || 0)
                 : (product.price || (Array.isArray(product.variants) && product.variants.length > 0
                     ? (product.variants[0].salePrice || product.variants[0].price || 0)
                     : 0));
+
+            // Ghi đè giá Flash Sale nếu có
+            if (activeSaleId) {
+                const fsProduct = activeSaleProducts.find(p => String(p.product) === String(product._id));
+                if (fsProduct && fsProduct.flashSalePrice) {
+                    price = fsProduct.flashSalePrice;
+                }
+            }
 
             itemsPrice += price * item.qty;
             verifiedItems.push({
@@ -205,6 +233,27 @@ export const addOrderItems = async (req, res) => {
         let calculatedItemsPrice = 0;
         const finalOrderItems = [];
 
+        // 1.5. Tìm Flash Sale đang diễn ra
+        const now = new Date();
+        const currentHour = now.getHours();
+        const activeSale = await FlashSale.findOne({
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+            isActive: true
+        }).session(session);
+
+        let activeSaleProducts = [];
+        let activeSaleId = null;
+        if (activeSale) {
+            const activeSlot = activeSale.timeSlots.find(slot => {
+                return currentHour >= slot && currentHour < (slot + (activeSale.duration / 60));
+            });
+            if (activeSlot !== undefined) {
+                activeSaleProducts = activeSale.products;
+                activeSaleId = activeSale._id;
+            }
+        }
+
         // 2. Duyệt qua từng sản phẩm để vừa kiểm tra giá, vừa trừ kho an toàn trong Inventory theo chi nhánh
         for (const item of orderItems) {
             const product = await Product.findById(item.product);
@@ -244,9 +293,25 @@ export const addOrderItems = async (req, res) => {
                 return res.status(400).json({ message: `Sản phẩm "${product.name}" có phiên bản hoặc số lượng không đủ trong kho tại chi nhánh đã chọn, vui lòng kiểm tra lại!` });
             }
 
-            const price = variant
+            let price = variant
                 ? (variant.salePrice || variant.price || 0)
                 : (product.price || 0);
+            
+            // Ghi đè giá flash sale nếu có
+            if (activeSaleId) {
+                const fsProduct = activeSaleProducts.find(p => String(p.product) === String(product._id));
+                if (fsProduct && fsProduct.flashSalePrice) {
+                    price = fsProduct.flashSalePrice;
+                    
+                    // Tăng số lượng đã bán (soldCount) cho sản phẩm này trong FlashSale
+                    await FlashSale.updateOne(
+                        { _id: activeSaleId, 'products.product': product._id },
+                        { $inc: { 'products.$.soldCount': item.qty } },
+                        { session }
+                    );
+                }
+            }
+
             const importPrice = variant?.importPrice || 0;
 
             calculatedItemsPrice += price * item.qty;

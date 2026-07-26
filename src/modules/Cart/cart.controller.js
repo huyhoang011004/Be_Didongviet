@@ -6,6 +6,7 @@ import StudentProfile from '#studentProfile/StudentProfile.model.js';
 import Inventory from '#inventory/Inventory.model.js';
 import Order from '#order/Order.model.js';
 import { calculateVoucherDiscount } from '#utils/voucherHelper.js';
+import FlashSale from '#flashSale/FlashSale.model.js';
 
 // --- THÊM VÀO GIỎ HÀNG ---
 export const addToCart = async (req, res) => {
@@ -31,7 +32,26 @@ export const addToCart = async (req, res) => {
         }
 
         let cart = await Cart.findOne({ user: userId });
-        const price = variant.salePrice || variant.price;
+        let price = variant.salePrice || variant.price;
+
+        // Cập nhật giá flash sale nếu có
+        const now = new Date();
+        const currentHour = now.getHours();
+        const activeSale = await FlashSale.findOne({
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+            isActive: true
+        });
+
+        if (activeSale) {
+            const activeSlot = activeSale.timeSlots.find(slot => currentHour >= slot && currentHour < (slot + (activeSale.duration / 60)));
+            if (activeSlot !== undefined) {
+                const fsProduct = activeSale.products.find(p => String(p.product) === String(product._id));
+                if (fsProduct && fsProduct.flashSalePrice) {
+                    price = fsProduct.flashSalePrice;
+                }
+            }
+        }
 
         if (cart) {
             const itemIndex = cart.items.findIndex(
@@ -173,6 +193,55 @@ export const getCart = async (req, res) => {
             cart.finalPrice = 0;
             await cart.save();
             return res.status(200).json({ success: true, data: cart });
+        }
+
+        // --- Cập nhật lại giá dựa theo Flash Sale (Re-validate giá) ---
+        const now = new Date();
+        const currentHour = now.getHours();
+        const activeSale = await FlashSale.findOne({
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+            isActive: true
+        });
+
+        let activeSaleProducts = [];
+        let activeSaleId = null;
+        if (activeSale) {
+            const activeSlot = activeSale.timeSlots.find(slot => {
+                return currentHour >= slot && currentHour < (slot + (activeSale.duration / 60));
+            });
+            if (activeSlot !== undefined) {
+                activeSaleProducts = activeSale.products;
+                activeSaleId = activeSale._id;
+            }
+        }
+
+        let isPriceChanged = false;
+
+        cart.items.forEach(item => {
+            const product = item.product; // Đã được populate
+            if (!product || !product.variants) return;
+
+            const variant = product.variants.find(v => v._id.toString() === item.variantId.toString());
+            if (!variant) return;
+
+            let currentPrice = variant.salePrice || variant.price || 0;
+
+            if (activeSaleId) {
+                const fsProduct = activeSaleProducts.find(p => String(p.product) === String(product._id));
+                if (fsProduct && fsProduct.flashSalePrice) {
+                    currentPrice = fsProduct.flashSalePrice;
+                }
+            }
+
+            if (item.price !== currentPrice) {
+                item.price = currentPrice;
+                isPriceChanged = true;
+            }
+        });
+
+        if (isPriceChanged) {
+            await cart.save(); // save sẽ trigger middleware pre('save') để tính lại totalPrice
         }
 
         // Tạm thời lấy tổng tiền gốc sau khi đã chạy lệnh populate hoặc tính toán xong
