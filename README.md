@@ -4,14 +4,14 @@
 Xây dựng bằng **Node.js + Express.js 5 + MongoDB (Mongoose)**.
 
 > ⚠️ **Repository riêng**: Đây là mã nguồn **Backend**. Repository Frontend riêng tại:  
-> `https://github.com/huyhoang011004/Be_Didongviet`
+> `https://github.com/huyhoang011004/fe_didongviet_nextjs`
 
 ---
 
 ## 📋 Mục lục
 
 - [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
-- [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
+- [Cấu trúc thư mục (Domain-Driven Design)](#-cấu-trúc-thư-mục-domain-driven-design)
 - [Yêu cầu hệ thống](#-yêu-cầu-hệ-thống-prerequisites)
 - [Hướng dẫn cài đặt](#-hướng-dẫn-cài-đặt)
 - [Cấu hình biến môi trường](#-cấu-hình-biến-môi-trường)
@@ -38,7 +38,9 @@ Xây dựng bằng **Node.js + Express.js 5 + MongoDB (Mongoose)**.
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 📁 Cấu trúc thư mục (Domain-Driven Design)
+
+Dự án được tái cấu trúc theo mô hình **Domain-Driven Design (DDD)** với 6 Domain (miền) lõi, giúp module hóa các logic nghiệp vụ và dễ dàng mở rộng.
 
 ```
 be_didongviet_expressjs/
@@ -52,28 +54,17 @@ be_didongviet_expressjs/
 │   ├── middlewares/
 │   │   ├── auth.middleware.js    # JWT + RBAC (protect, adminRole, staffRole)
 │   │   ├── error.middleware.js   # Xử lý lỗi tập trung
-│   │   └── upload.middleware.js  # Upload file (multer)
-│   ├── modules/                  # 16 Domain Modules
-│   │   ├── Account/             # Quản lý người dùng
-│   │   ├── Analytics/           # Thống kê báo cáo
-│   │   ├── Auth/                # Đăng nhập, đăng ký, OTP
-│   │   ├── Blog/                # Tin tức
-│   │   ├── Branch/              # Chi nhánh cửa hàng
-│   │   ├── Cart/                # Giỏ hàng
-│   │   ├── Category/            # Danh mục sản phẩm
-│   │   ├── Contact/             # Liên hệ hỗ trợ
-│   │   ├── FlashSale/           # Flash sale
-│   │   ├── GHN/                 # Giao Hàng Nhanh
-│   │   ├── Inventory/           # Tồn kho
-│   │   ├── Order/               # Đơn hàng
-│   │   ├── Payment/             # Thanh toán (MOMO, VNPAY)
-│   │   ├── Product/             # Sản phẩm
-│   │   ├── Review/              # Đánh giá
-│   │   ├── StudentProfile/      # Hồ sơ sinh viên
-│   │   └── Voucher/             # Mã giảm giá
+│   │   └── validate.middleware.js# Validate Dữ liệu chung
+│   ├── modules/                  # 6 Core Domains
+│   │   ├── analytics/            # Thống kê, KPI, Báo cáo
+│   │   ├── auth-user/            # Đăng nhập, Account, Hồ sơ sinh viên, Liên hệ
+│   │   ├── catalog/              # Quản lý Sản phẩm, Danh mục, Đánh giá, Tồn kho
+│   │   ├── cms/                  # Quản trị nội dung (Blog)
+│   │   ├── fulfillment/          # Xử lý Chi nhánh, Giao hàng (GHN)
+│   │   └── sales/                # Quản lý Đơn hàng, Giỏ hàng, Voucher, FlashSale, Thanh toán
 │   ├── routes/
-│   │   └── index.js             # Route Registry (tập trung)
-│   └── utils/                   # Tiện ích (slugify, email, helpers...)
+│   │   └── index.js             # Route Registry tập trung
+│   └── utils/                   # Tiện ích chung (slugify, email, voucherHelper...)
 ├── .env.example                 # Mẫu biến môi trường
 ├── TESTCASES.md                 # Bảng Test Cases
 └── package.json
@@ -136,8 +127,8 @@ Tạo file `.env` tại thư mục gốc và cấu hình các khóa sau:
 | `MONGODB_CONNECTION_STRING` | ✅ | Chuỗi kết nối MongoDB | `mongodb://localhost:27017/didongviet` |
 | `BASE_URL` | ❌ | Base URL cho ảnh | `http://localhost:5000` |
 | `ACCESS_TOKEN_SECRET` | ✅ | Khóa bí mật JWT | (tạo chuỗi ngẫu nhiên) |
-| `ACCESS_TOKEN_TTL` | ❌ | Thời gian sống access token | `7d` |
-| `REFRESH_TOKEN_TTL` | ❌ | Thời gian sống refresh token | `30d` |
+| `ACCESS_TOKEN_TTL` | ❌ | Thời gian sống access token | `15m` |
+| `REFRESH_TOKEN_TTL` | ❌ | Thời gian sống refresh token | `14d` |
 | `GMAIL_ADMIN` | ✅ | Email gửi OTP | `your-email@gmail.com` |
 | `GMAIL_APP_PASSWORD` | ✅ | Mật khẩu ứng dụng Gmail (16 ký tự) | (tạo từ Google) |
 | `MOMO_*` | ❌ | Cấu hình thanh toán MOMO (sandbox) | Giá trị mặc định có sẵn |
@@ -190,34 +181,23 @@ Server sẽ chạy tại: **http://localhost:5000** (tự động reload khi có
 ### Môi trường Production
 
 ```bash
-NODE_ENV=production npm start
+npm run start
 ```
 
 ---
 
 ## 🔌 API Endpoints
 
-Backend cung cấp RESTful API với prefix `/api/v1`. Các nhóm API chính:
+Backend cung cấp RESTful API với prefix `/api/v1`. Các API được module hóa theo 6 Core Domains:
 
 | Nhóm | Base path | Mô tả |
 |------|-----------|-------|
-| Auth | `/api/v1/auth` | Đăng nhập, đăng ký, OTP, Google Login |
-| Account | `/api/v1/accounts` | Quản lý người dùng |
-| Product | `/api/v1/products` | Sản phẩm, variants, tìm kiếm |
-| Category | `/api/v1/categories` | Danh mục sản phẩm |
-| Cart | `/api/v1/cart` | Giỏ hàng, voucher |
-| Order | `/api/v1/orders` | Đơn hàng, trả hàng |
-| Voucher | `/api/v1/vouchers` | Mã giảm giá |
-| Branch | `/api/v1/branches` | Chi nhánh |
-| Review | `/api/v1/reviews` | Đánh giá |
-| Blog | `/api/v1/blogs` | Tin tức |
-| Contact | `/api/v1/contacts` | Liên hệ |
-| Payment | `/api/v1/payment` | Thanh toán (MOMO, VNPAY) |
-| GHN | `/api/v1/ghn` | Giao Hàng Nhanh |
-| Inventory | `/api/v1/inventory` | Tồn kho |
-| FlashSale | `/api/v1/flash-sales` | Flash sale |
-| Analytics | `/api/v1/analytics` | Thống kê (admin) |
-| StudentProfile | `/api/v1/student-profile` | Hồ sơ sinh viên |
+| Auth & User | `/api/v1/auth`, `/api/v1/accounts` | Đăng nhập, OTP, Quản lý User |
+| Catalog | `/api/v1/products`, `/api/v1/categories` | Sản phẩm, Danh mục, Tồn kho |
+| Sales | `/api/v1/orders`, `/api/v1/cart` | Giỏ hàng, Đơn hàng, Voucher |
+| Fulfillment | `/api/v1/branches`, `/api/v1/ghn` | Chi nhánh, Vận chuyển GHN |
+| CMS | `/api/v1/blogs` | Quản lý Bài viết (Blog) |
+| Analytics | `/api/v1/analytics` | Thống kê Dashboard Admin |
 
 ---
 

@@ -20,7 +20,7 @@ import flashSaleRoute from '#flashSale/flashSale.route.js';
 import analyticsRoute from '#analytics/analytics.route.js';
 import paymentRoute from '#payment/payment.route.js';
 import ghnRoute from '#ghn/ghn.route.js';
-import bannerRoute from '../modules/Banner/banner.route.js';
+import bannerRoute from '#banner/banner.route.js';
 
 const routes = [
     { path: '/api/v1/auth', router: authRoute },
